@@ -15,16 +15,13 @@
  * Reads `?backend=...` from the page URL or LIFF state.
  * Each customer's tenant has a different Apps Script URL.
  */
+// Fallback when LIFF Endpoint URL can't carry a ?backend= param.
+// Single-tenant deployment — for multi-tenant, prefer ?backend= query param.
+const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwIXi2HjDTeLr6ZG49FuJstrCV5ZmpuAhbcFQ-OkAy_nCoLbDzavxV0n73Cxqlsgsml/exec';
+
 function getBackendUrl() {
   const params = new URLSearchParams(window.location.search);
-  // Allow either ?backend=... or ?b=...
-  const url = params.get('backend') || params.get('b');
-  if (!url) {
-    throw new Error(
-      'No backend URL configured. ' +
-      'The LIFF endpoint URL should include ?backend=<your-apps-script-exec-url>'
-    );
-  }
+  const url = params.get('backend') || params.get('b') || DEFAULT_BACKEND_URL;
   return decodeURIComponent(url);
 }
 
