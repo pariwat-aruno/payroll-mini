@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ส่งใบลา — Payroll Mini</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body { font-family: 'Sarabun', 'Noto Sans Thai', system-ui, sans-serif; }
+  .quota-pill { background: #F3F4F6; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+  .quota-pill.low { background: #FEF3C7; color: #92400E; }
+  .quota-pill.zero { background: #FEE2E2; color: #991B1B; }
+  /* iOS safe areas */
+  body { padding-bottom: env(safe-area-inset-bottom); }
+</style>
+</head>
+<body class="bg-white text-gray-900 max-w-lg mx-auto pb-20">
+
+<!-- Mock mode banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center">
+  ⚙️ Local dev mode — using mock LIFF
+</div>
+
+<header class="px-5 pt-6 pb-4 border-b">
+  <h1 class="text-xl font-semibold">ส่งใบลา</h1>
+  <p id="user-greeting" class="text-sm text-gray-500 mt-1">กำลังโหลด...</p>
+</header>
+
+<!-- Quota status -->
+<section class="px-5 py-4 border-b bg-gray-50">
+  <p class="text-xs text-gray-500 uppercase mb-2">สิทธิ์การลาคงเหลือ (ปีนี้)</p>
+  <div id="quota-display" class="flex flex-wrap gap-2 text-sm">
+    <span class="quota-pill">กำลังโหลด...</span>
+  </div>
+</section>
+
+<!-- Form -->
+<form id="leave-form" class="px-5 py-5 space-y-5">
+
+  <div>
+    <label class="block text-sm font-medium mb-2">ประเภทการลา</label>
+    <div class="grid grid-cols-2 gap-2" id="type-buttons">
+      <button type="button" data-type="sick"      class="leave-type-btn border rounded-lg py-3 text-sm">ลาป่วย</button>
+      <button type="button" data-type="personal"  class="leave-type-btn border rounded-lg py-3 text-sm">ลากิจ</button>
+      <button type="button" data-type="vacation"  class="leave-type-btn border rounded-lg py-3 text-sm">พักร้อน</button>
+      <button type="button" data-type="unpaid"    class="leave-type-btn border rounded-lg py-3 text-sm">ลาไม่รับเงิน</button>
+    </div>
+    <input type="hidden" name="leave_type" id="leave_type" required>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-sm font-medium mb-2">วันที่เริ่มลา</label>
+      <input type="date" name="start_date" id="start_date" required
+             class="w-full border rounded-lg p-3 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-2">วันที่สิ้นสุด</label>
+      <input type="date" name="end_date" id="end_date" required
+             class="w-full border rounded-lg p-3 text-sm">
+    </div>
+  </div>
+
+  <p id="day-count" class="text-xs text-gray-500"></p>
+
+  <div>
+    <label class="block text-sm font-medium mb-2">เหตุผล</label>
+    <textarea name="reason" id="reason" rows="3"
+              class="w-full border rounded-lg p-3 text-sm"
+              placeholder="ระบุเหตุผลสั้นๆ"></textarea>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium mb-2">แนบหลักฐาน (ถ้ามี)</label>
+    <input type="url" name="evidence_url" id="evidence_url"
+           class="w-full border rounded-lg p-3 text-sm"
+           placeholder="ลิงก์ Google Drive / Photos">
+    <p class="text-xs text-gray-500 mt-1">เช่น ใบรับรองแพทย์ (สำหรับลาป่วยเกิน 3 วัน)</p>
+  </div>
+
+  <button type="submit" id="submit-btn"
+          class="w-full bg-gray-900 text-white py-3 rounded-lg font-medium disabled:bg-gray-400">
+    ส่งใบลา
+  </button>
+
+  <p id="status-message" class="text-sm text-center min-h-[1.5em]"></p>
+</form>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const { liffInit, liffGetProfile, liffGetIDToken, liffClose, liffIsMock } = window.LiffBridge;
+const { apiSubmitLeave, apiGetMyQuota } = window.PayrollApi;
+
+// === LIFF ID resolution ===
+// Priority: ?liffId=... in URL  >  default
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || 'YOUR_LIFF_ID_HERE';
+
+let userIdToken = null;
+
+async function init() {
+  try {
+    await liffInit(LIFF_ID);
+    if (liffIsMock()) {
+      document.getElementById('mock-banner').classList.remove('hidden');
+    }
+    const profile = await liffGetProfile();
+    userIdToken = liffGetIDToken();
+    document.getElementById('user-greeting').textContent =
+      `สวัสดี ${profile.displayName}`;
+
+    // Load quota
+    await loadQuota();
+  } catch (err) {
+    setStatus('โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function loadQuota() {
+  const display = document.getElementById('quota-display');
+  try {
+    const quota = await apiGetMyQuota(userIdToken);
+    if (!quota) {
+      display.innerHTML = '<span class="quota-pill">ยังไม่ได้กำหนดสิทธิ์</span>';
+      return;
+    }
+    const types = [
+      { key: 'sick',     label: 'ป่วย' },
+      { key: 'personal', label: 'กิจ' },
+      { key: 'vacation', label: 'พักร้อน' },
+    ];
+    display.innerHTML = types.map(t => {
+      const q = quota[t.key];
+      let cls = 'quota-pill';
+      if (q.remain === 0) cls += ' zero';
+      else if (q.remain <= 2) cls += ' low';
+      return `<span class="${cls}">${t.label}: ${q.remain}/${q.quota}</span>`;
+    }).join('');
+  } catch (err) {
+    display.innerHTML = `<span class="quota-pill zero">โหลดสิทธิ์ไม่ได้</span>`;
+  }
+}
+
+// === Type button highlight ===
+document.querySelectorAll('.leave-type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.leave-type-btn').forEach(b => {
+      b.classList.remove('bg-gray-900', 'text-white', 'border-gray-900');
+    });
+    btn.classList.add('bg-gray-900', 'text-white', 'border-gray-900');
+    document.getElementById('leave_type').value = btn.dataset.type;
+  });
+});
+
+// === Day count display ===
+function updateDayCount() {
+  const s = document.getElementById('start_date').value;
+  const e = document.getElementById('end_date').value;
+  if (!s || !e) {
+    document.getElementById('day-count').textContent = '';
+    return;
+  }
+  const days = Math.round((new Date(e) - new Date(s)) / (1000 * 60 * 60 * 24)) + 1;
+  if (days < 1) {
+    document.getElementById('day-count').textContent = '⚠ วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม';
+  } else {
+    document.getElementById('day-count').textContent = `รวม ${days} วัน`;
+  }
+}
+document.getElementById('start_date').addEventListener('change', updateDayCount);
+document.getElementById('end_date').addEventListener('change', updateDayCount);
+
+// === Submit ===
+document.getElementById('leave-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  const status = document.getElementById('status-message');
+  status.textContent = '';
+  status.className = 'text-sm text-center min-h-[1.5em]';
+
+  const data = {
+    leave_type: document.getElementById('leave_type').value,
+    start_date: document.getElementById('start_date').value,
+    end_date:   document.getElementById('end_date').value,
+    reason:     document.getElementById('reason').value,
+    evidence_url: document.getElementById('evidence_url').value,
+  };
+
+  if (!data.leave_type) {
+    setStatus('กรุณาเลือกประเภทการลา', 'error');
+    return;
+  }
+  if (new Date(data.end_date) < new Date(data.start_date)) {
+    setStatus('วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังส่ง...';
+
+  try {
+    const result = await apiSubmitLeave(data, userIdToken);
+    setStatus(`✓ ส่งใบลาสำเร็จ ${result.count} วัน`, 'success');
+    btn.textContent = 'ส่งแล้ว';
+    setTimeout(() => liffClose(), 1500);
+  } catch (err) {
+    setStatus('ส่งไม่สำเร็จ: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'ส่งใบลา';
+  }
+});
+
+function setStatus(text, kind) {
+  const el = document.getElementById('status-message');
+  el.textContent = text;
+  el.className = 'text-sm text-center min-h-[1.5em] ' +
+    (kind === 'error' ? 'text-red-600' : kind === 'success' ? 'text-green-600' : '');
+}
+
+// kick off
+init();
+</script>
+</body>
+</html>

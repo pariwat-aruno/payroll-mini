@@ -1,0 +1,24 @@
+# Apps Script
+.clasp.json
+.clasprc.json
+node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Secrets — never commit
+.env
+.env.local
+*.secret
+secrets.json
+credentials.json
