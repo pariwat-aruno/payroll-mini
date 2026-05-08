@@ -90,8 +90,10 @@
 <script src="liff-bridge.js"></script>
 <script src="api.js"></script>
 <script>
-const { liffInit, liffGetProfile, liffGetIDToken, liffClose, liffIsMock } = window.LiffBridge;
-const { apiSubmitLeave, apiGetMyQuota } = window.PayrollApi;
+// liff-bridge.js / api.js attach functions both as globals AND on window.*
+// Use the namespaces to avoid redeclaring globals.
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
 
 // === LIFF ID resolution ===
 // Priority: ?liffId=... in URL  >  default
@@ -102,12 +104,12 @@ let userIdToken = null;
 
 async function init() {
   try {
-    await liffInit(LIFF_ID);
-    if (liffIsMock()) {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) {
       document.getElementById('mock-banner').classList.remove('hidden');
     }
-    const profile = await liffGetProfile();
-    userIdToken = liffGetIDToken();
+    const profile = await Liff.liffGetProfile();
+    userIdToken = Liff.liffGetIDToken();
     document.getElementById('user-greeting').textContent =
       `สวัสดี ${profile.displayName}`;
 
@@ -121,7 +123,7 @@ async function init() {
 async function loadQuota() {
   const display = document.getElementById('quota-display');
   try {
-    const quota = await apiGetMyQuota(userIdToken);
+    const quota = await Api.apiGetMyQuota(userIdToken);
     if (!quota) {
       display.innerHTML = '<span class="quota-pill">ยังไม่ได้กำหนดสิทธิ์</span>';
       return;
@@ -201,10 +203,10 @@ document.getElementById('leave-form').addEventListener('submit', async (e) => {
   btn.textContent = 'กำลังส่ง...';
 
   try {
-    const result = await apiSubmitLeave(data, userIdToken);
+    const result = await Api.apiSubmitLeave(data, userIdToken);
     setStatus(`✓ ส่งใบลาสำเร็จ ${result.count} วัน`, 'success');
     btn.textContent = 'ส่งแล้ว';
-    setTimeout(() => liffClose(), 1500);
+    setTimeout(() => Liff.liffClose(), 1500);
   } catch (err) {
     setStatus('ส่งไม่สำเร็จ: ' + err.message, 'error');
     btn.disabled = false;
