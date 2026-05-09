@@ -84,7 +84,7 @@
   </a>
 
   <!-- Owner-only cards (hidden by default) -->
-  <a href="owner.html" id="owner-card" class="menu-card hidden bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <a href="owner.html" id="owner-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">กล่องอนุมัติ
@@ -96,7 +96,7 @@
     </div>
   </a>
 
-  <a href="help.html" id="help-card" class="menu-card hidden bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <a href="help.html" id="help-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">คู่มือเจ้าของระบบ
@@ -130,8 +130,8 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
     try {
       const me = await window.PayrollApi.apiGetMe(Liff.liffGetIDToken());
       if (me && me.is_owner) {
-        document.getElementById('owner-card').classList.remove('hidden');
-        document.getElementById('help-card').classList.remove('hidden');
+        document.getElementById('owner-card').removeAttribute('hidden');
+        document.getElementById('help-card').removeAttribute('hidden');
       }
     } catch (_) { /* not mapped — leave cards hidden */ }
   } catch (err) {
