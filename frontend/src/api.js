@@ -144,6 +144,21 @@ async function apiUploadEvidence(idToken, payload) {
   return apiPost('uploadEvidence', payload, idToken);
 }
 
+// HR / Admin
+async function apiHrListEmployees(idToken)              { return apiPost('hrListEmployees', {}, idToken); }
+async function apiHrUpsertEmployee(idToken, payload)    { return apiPost('hrUpsertEmployee', payload, idToken); }
+async function apiHrListAllowances(idToken, payload)    { return apiPost('hrListAllowances', payload || {}, idToken); }
+async function apiHrUpsertAllowance(idToken, payload)   { return apiPost('hrUpsertAllowance', payload, idToken); }
+async function apiHrDeleteAllowance(idToken, payload)   { return apiPost('hrDeleteAllowance', payload, idToken); }
+async function apiHrListRecurringDeductions(idToken)    { return apiPost('hrListRecurringDeductions', {}, idToken); }
+async function apiHrUpsertRecurringDeduction(idToken, payload) { return apiPost('hrUpsertRecurringDeduction', payload, idToken); }
+async function apiHrDeleteRecurringDeduction(idToken, payload) { return apiPost('hrDeleteRecurringDeduction', payload, idToken); }
+async function apiHrListHolidays(idToken)               { return apiPost('hrListHolidays', {}, idToken); }
+async function apiHrUpsertHoliday(idToken, payload)     { return apiPost('hrUpsertHoliday', payload, idToken); }
+async function apiHrDeleteHoliday(idToken, payload)     { return apiPost('hrDeleteHoliday', payload, idToken); }
+async function apiHrListLeaveQuota(idToken, payload)    { return apiPost('hrListLeaveQuota', payload || {}, idToken); }
+async function apiHrUpsertLeaveQuota(idToken, payload)  { return apiPost('hrUpsertLeaveQuota', payload, idToken); }
+
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
   window.PayrollApi = {
@@ -166,6 +181,19 @@ if (typeof window !== 'undefined') {
     apiRespondInfoRequest,
     apiSubmitConditionalEvidence,
     apiUploadEvidence,
+    apiHrListEmployees,
+    apiHrUpsertEmployee,
+    apiHrListAllowances,
+    apiHrUpsertAllowance,
+    apiHrDeleteAllowance,
+    apiHrListRecurringDeductions,
+    apiHrUpsertRecurringDeduction,
+    apiHrDeleteRecurringDeduction,
+    apiHrListHolidays,
+    apiHrUpsertHoliday,
+    apiHrDeleteHoliday,
+    apiHrListLeaveQuota,
+    apiHrUpsertLeaveQuota,
     getBackendUrl,
   };
 }

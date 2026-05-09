@@ -114,6 +114,21 @@ function _getHandler(action) {
     getLeaveForRespond: handleGetLeaveForRespond,
     uploadEvidence: handleUploadEvidence,
 
+    // HR / Admin (HR or Owner role required)
+    hrListEmployees:    handleHrListEmployees,
+    hrUpsertEmployee:   handleHrUpsertEmployee,
+    hrListAllowances:   handleHrListAllowances,
+    hrUpsertAllowance:  handleHrUpsertAllowance,
+    hrDeleteAllowance:  handleHrDeleteAllowance,
+    hrListRecurringDeductions:  handleHrListRecurringDeductions,
+    hrUpsertRecurringDeduction: handleHrUpsertRecurringDeduction,
+    hrDeleteRecurringDeduction: handleHrDeleteRecurringDeduction,
+    hrListHolidays:     handleHrListHolidays,
+    hrUpsertHoliday:    handleHrUpsertHoliday,
+    hrDeleteHoliday:    handleHrDeleteHoliday,
+    hrListLeaveQuota:   handleHrListLeaveQuota,
+    hrUpsertLeaveQuota: handleHrUpsertLeaveQuota,
+
     // Owner-only — handler enforces role check internally
     runReconcile: handleRunReconcile,
     listEscalations: handleListEscalations,
@@ -186,6 +201,20 @@ function handleUploadEvidence(payload, ctx) {
   return uploadEvidence(payload, ctx);
 }
 
+function handleHrListEmployees(payload, ctx)             { _requireHrOrOwner_(ctx); return hrListEmployees(); }
+function handleHrUpsertEmployee(payload, ctx)            { _requireHrOrOwner_(ctx); return hrUpsertEmployee(payload); }
+function handleHrListAllowances(payload, ctx)            { _requireHrOrOwner_(ctx); return hrListAllowances(payload); }
+function handleHrUpsertAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrUpsertAllowance(payload); }
+function handleHrDeleteAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrDeleteAllowance(payload); }
+function handleHrListRecurringDeductions(payload, ctx)   { _requireHrOrOwner_(ctx); return hrListRecurringDeductions(); }
+function handleHrUpsertRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrUpsertRecurringDeduction(payload); }
+function handleHrDeleteRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrDeleteRecurringDeduction(payload); }
+function handleHrListHolidays(payload, ctx)              { _requireHrOrOwner_(ctx); return hrListHolidays(); }
+function handleHrUpsertHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrUpsertHoliday(payload); }
+function handleHrDeleteHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrDeleteHoliday(payload); }
+function handleHrListLeaveQuota(payload, ctx)            { _requireHrOrOwner_(ctx); return hrListLeaveQuota(payload); }
+function handleHrUpsertLeaveQuota(payload, ctx)          { _requireHrOrOwner_(ctx); return hrUpsertLeaveQuota(payload); }
+
 function handleRunReconcile(payload, ctx) {
   _requireOwner(ctx);
   return runReconcileWithSummary(payload.period, ctx.userId);
@@ -243,10 +272,19 @@ function handleGetMySlipPdf(payload, ctx) {
 }
 
 function handleGetMe(payload, ctx) {
+  // Look up role from LINE_User_Map so the home page can decide which cards to show
+  let role = '';
+  try {
+    const map = readTab_(getSecretSheet_(), 'LINE_User_Map');
+    const r = map.find(m => m.line_user_id === ctx.userId);
+    if (r) role = String(r.role || '').toLowerCase();
+  } catch (_) { /* role optional; default to '' */ }
   return {
     emp_code: ctx.empCode,
     user_id:  ctx.userId,
-    is_owner: ctx.empCode === 'OWNER',
+    role,
+    is_owner: ctx.empCode === 'OWNER' || role === 'owner',
+    is_hr:    role === 'hr' || role === 'owner' || ctx.empCode === 'OWNER',
   };
 }
 

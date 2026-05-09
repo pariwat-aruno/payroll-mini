@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>เครื่องมือ HR — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  input, select, textarea { font-size: 16px; min-height: 44px; }
+  .tab-btn[aria-selected="true"] { background:#0e7490; color:#fff; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white text-center px-6 pt-7 pb-10">
+  <div class="flex items-center justify-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <h1 class="text-3xl font-bold tracking-tight">เครื่องมือ HR</h1>
+    <p class="text-sm text-white/85 mt-1.5">จัดการข้อมูลพนักงาน · เงินเพิ่ม/หัก · วันหยุด · โควตา</p>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="px-4 -mt-4">
+  <div class="bg-white rounded-xl ring-1 ring-slate-200 p-1.5 grid grid-cols-5 gap-1" role="tablist">
+    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="emp"   aria-selected="true">พนักงาน</button>
+    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="allow" aria-selected="false">เงินเพิ่ม/หัก</button>
+    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="rec"   aria-selected="false">หักประจำ</button>
+    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="hol"   aria-selected="false">วันหยุด</button>
+    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="quota" aria-selected="false">โควตาลา</button>
+  </div>
+</div>
+
+<main class="px-4 mt-3 space-y-3">
+
+  <!-- ===== Employees ===== -->
+  <section data-panel="emp" class="space-y-3">
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-4">
+      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">พนักงานทั้งหมด</p>
+      <div id="emp-list" class="divide-y divide-slate-100">
+        <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Allowances ===== -->
+  <section data-panel="allow" hidden class="space-y-3">
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">เงินเพิ่ม / หัก (ค่าผ่านทาง / เบี้ยเลี้ยง / เครื่องแบบ ฯลฯ)</p>
+        <button id="add-allow-btn" class="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">+ เพิ่ม</button>
+      </div>
+      <div id="allow-list" class="divide-y divide-slate-100">
+        <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Recurring Deductions ===== -->
+  <section data-panel="rec" hidden class="space-y-3">
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">หักประจำ (PF / SSO / กยศ. / กู้บริษัท)</p>
+        <button id="add-rec-btn" class="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">+ เพิ่ม</button>
+      </div>
+      <div id="rec-list" class="divide-y divide-slate-100">
+        <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Holidays ===== -->
+  <section data-panel="hol" hidden class="space-y-3">
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ปฏิทินวันหยุด</p>
+        <button id="add-hol-btn" class="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">+ เพิ่ม</button>
+      </div>
+      <div id="hol-list" class="divide-y divide-slate-100">
+        <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Leave Quota ===== -->
+  <section data-panel="quota" hidden class="space-y-3">
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">โควตาลาประจำปี</p>
+        <button id="add-quota-btn" class="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium">+ เพิ่ม</button>
+      </div>
+      <div id="quota-year-wrap" class="mb-3">
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">ปี</label>
+        <input type="number" id="quota-year" min="2020" max="2100" value="" class="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none">
+      </div>
+      <div id="quota-list" class="divide-y divide-slate-100">
+        <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+      </div>
+    </div>
+  </section>
+
+  <p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+</main>
+</div>
+
+<!-- ===== Modal ===== -->
+<div id="modal" class="hidden fixed inset-0 z-30 flex items-end justify-center modal-backdrop p-0 sm:p-4">
+  <div class="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl p-5 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="modal-title" class="text-lg font-bold">—</h2>
+      <button id="modal-close" class="text-slate-500 hover:text-slate-900 text-2xl leading-none">×</button>
+    </div>
+    <form id="modal-form" class="space-y-3"></form>
+    <div class="flex items-center gap-2 mt-4">
+      <button id="modal-delete" type="button" class="hidden bg-red-50 text-red-700 border border-red-200 px-3 py-2.5 rounded-lg text-sm font-medium">ลบ</button>
+      <button id="modal-save" type="button" class="flex-1 bg-cyan-600 text-white py-2.5 rounded-lg text-sm font-semibold">บันทึก</button>
+    </div>
+    <p id="modal-status" class="text-sm text-center min-h-[1.5em] mt-2 font-medium"></p>
+  </div>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script src="nav.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+let employees = []; // cached for emp_code dropdowns
+
+const $ = (id) => document.getElementById(id);
+
+const STATUS_LABELS = { active: 'ทำงาน', probation: 'ทดลอง', resigned: 'ลาออก', terminated: 'เลิกจ้าง' };
+const ALLOW_CAT = {
+  transport: 'ค่าเดินทาง', per_diem: 'เบี้ยเลี้ยง', meal: 'ค่าอาหาร',
+  uniform: 'ค่าเครื่องแบบ', parking: 'ค่าจอดรถ', communication: 'ค่าโทรศัพท์', other: 'อื่นๆ',
+};
+const DED_TYPE = {
+  pf: 'PF (กองทุนสำรองเลี้ยงชีพ)', sso: 'ประกันสังคม', studentloan: 'กยศ.',
+  companyloan: 'กู้บริษัท', other: 'อื่นๆ',
+};
+const HOL_TYPE = { public: 'วันหยุดราชการ', company: 'วันหยุดบริษัท', other: 'อื่นๆ' };
+
+async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) $('mock-banner').classList.remove('hidden');
+    userIdToken = Liff.liffGetIDToken();
+    const me = await Api.apiGetMe(userIdToken);
+    if (!me.is_hr) {
+      showError('คุณไม่มีสิทธิ์ใช้หน้านี้ — ต้องเป็น HR หรือ Owner');
+      return;
+    }
+    $('quota-year').value = String(new Date().getFullYear());
+    bindEvents();
+    employees = await Api.apiHrListEmployees(userIdToken);
+    renderEmployees();
+  } catch (err) {
+    showError('โหลดไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function bindEvents() {
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Add buttons
+  $('add-allow-btn').addEventListener('click', () => openAllowanceModal());
+  $('add-rec-btn').addEventListener('click', () => openRecModal());
+  $('add-hol-btn').addEventListener('click', () => openHolidayModal());
+  $('add-quota-btn').addEventListener('click', () => openQuotaModal());
+
+  // Modal
+  $('modal-close').addEventListener('click', closeModal);
+  document.querySelector('#modal').addEventListener('click', (e) => {
+    if (e.target.id === 'modal') closeModal();
+  });
+
+  // Quota year change
+  $('quota-year').addEventListener('change', loadQuota);
+}
+
+let activeTab = 'emp';
+async function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false');
+  });
+  document.querySelectorAll('section[data-panel]').forEach(p => {
+    p.toggleAttribute('hidden', p.dataset.panel !== tab);
+  });
+  // Lazy-load
+  if (tab === 'allow') return loadAllowances();
+  if (tab === 'rec')   return loadRecDeductions();
+  if (tab === 'hol')   return loadHolidays();
+  if (tab === 'quota') return loadQuota();
+}
+
+/* ============ Employees ============ */
+function renderEmployees() {
+  const root = $('emp-list');
+  if (employees.length === 0) {
+    root.innerHTML = '<p class="text-sm text-slate-500 text-center py-3">ไม่มีข้อมูล</p>';
+    return;
+  }
+  root.innerHTML = employees.map(e => `
+    <div class="py-3 flex items-center justify-between gap-3 cursor-pointer" data-emp="${e.emp_code}">
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">${escape(e.first_name)} ${escape(e.last_name)} <span class="text-xs text-slate-400">(${escape(e.emp_code)})</span></p>
+        <p class="text-xs text-slate-500 truncate">${escape(e.department || '-')} · ${escape(e.position || '-')} · ${STATUS_LABELS[e.status] || e.status || '-'}</p>
+      </div>
+      <span class="text-slate-400 text-lg shrink-0">›</span>
+    </div>
+  `).join('');
+  root.querySelectorAll('[data-emp]').forEach(el => {
+    el.addEventListener('click', () => {
+      const emp = employees.find(x => x.emp_code === el.dataset.emp);
+      openEmployeeModal(emp);
+    });
+  });
+}
+function openEmployeeModal(emp) {
+  openModal({
+    title: `แก้ข้อมูล ${emp.emp_code}`,
+    fields: [
+      { type: 'text',   key: 'first_name',  label: 'ชื่อ',         value: emp.first_name },
+      { type: 'text',   key: 'last_name',   label: 'นามสกุล',      value: emp.last_name },
+      { type: 'text',   key: 'nickname',    label: 'ชื่อเล่น',     value: emp.nickname },
+      { type: 'text',   key: 'department',  label: 'แผนก',          value: emp.department },
+      { type: 'text',   key: 'position',    label: 'ตำแหน่ง',       value: emp.position },
+      { type: 'select', key: 'status',      label: 'สถานะ',         value: emp.status,
+        options: Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l })) },
+      { type: 'date',   key: 'end_date',    label: 'วันที่ลาออก',  value: emp.end_date },
+      { type: 'text',   key: 'note',        label: 'หมายเหตุ',     value: emp.note },
+    ],
+    onSave: async (data) => {
+      await Api.apiHrUpsertEmployee(userIdToken, { emp_code: emp.emp_code, ...data });
+      employees = await Api.apiHrListEmployees(userIdToken);
+      renderEmployees();
+    },
+  });
+}
+
+/* ============ Allowances ============ */
+let allowances = [];
+async function loadAllowances() {
+  $('allow-list').innerHTML = '<p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>';
+  allowances = await Api.apiHrListAllowances(userIdToken, {});
+  renderAllowances();
+}
+function renderAllowances() {
+  const root = $('allow-list');
+  if (allowances.length === 0) {
+    root.innerHTML = '<p class="text-sm text-slate-500 text-center py-3">ยังไม่มีรายการ</p>';
+    return;
+  }
+  // Sort by period desc then emp_code
+  const sorted = allowances.slice().sort((a, b) =>
+    (b.period || '').localeCompare(a.period || '') || a.emp_code.localeCompare(b.emp_code));
+  root.innerHTML = sorted.map(a => `
+    <div class="py-3 flex items-start justify-between gap-3 cursor-pointer" data-id="${escape(a.allowance_id)}">
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">
+          ${empName(a.emp_code)} · ${ALLOW_CAT[a.category] || a.category}
+          <span class="ml-1 text-xs ${a.direction === 'addition' ? 'text-emerald-700' : 'text-red-700'}">
+            ${a.direction === 'addition' ? '+' : '−'}${formatBaht(a.amount)}
+          </span>
+        </p>
+        <p class="text-xs text-slate-500 truncate">${a.period === '*' ? 'ทุกงวด' : a.period}${a.note ? ' · ' + escape(a.note) : ''}</p>
+      </div>
+      <span class="text-slate-400 text-lg shrink-0">›</span>
+    </div>
+  `).join('');
+  root.querySelectorAll('[data-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const a = allowances.find(x => x.allowance_id === el.dataset.id);
+      openAllowanceModal(a);
+    });
+  });
+}
+function openAllowanceModal(item) {
+  const isEdit = !!item;
+  openModal({
+    title: isEdit ? 'แก้ไขเงินเพิ่ม/หัก' : 'เพิ่มเงินเพิ่ม/หัก',
+    fields: [
+      { type: 'select', key: 'emp_code',  label: 'พนักงาน',  value: item ? item.emp_code : '',
+        options: employeeOptions() },
+      { type: 'period',  key: 'period',   label: 'งวด',     value: item ? item.period : currentPeriod(),
+        hint: 'YYYY-MM หรือ * = ทุกงวด' },
+      { type: 'select', key: 'direction', label: 'ประเภท', value: item ? item.direction : 'addition',
+        options: [{ value: 'addition', label: 'เงินเพิ่ม' }, { value: 'deduction', label: 'หักเงิน' }] },
+      { type: 'select', key: 'category',  label: 'หมวดหมู่', value: item ? item.category : 'transport',
+        options: Object.entries(ALLOW_CAT).map(([v, l]) => ({ value: v, label: l })) },
+      { type: 'number', key: 'amount',    label: 'จำนวนเงิน (บาท)', value: item ? item.amount : '' },
+      { type: 'text',   key: 'note',      label: 'หมายเหตุ', value: item ? item.note : '' },
+    ],
+    onSave: async (data) => {
+      const payload = isEdit ? { ...data, allowance_id: item.allowance_id } : data;
+      await Api.apiHrUpsertAllowance(userIdToken, payload);
+      await loadAllowances();
+    },
+    onDelete: isEdit ? async () => {
+      await Api.apiHrDeleteAllowance(userIdToken, { allowance_id: item.allowance_id });
+      await loadAllowances();
+    } : null,
+  });
+}
+
+/* ============ Recurring Deductions ============ */
+let recurring = [];
+async function loadRecDeductions() {
+  $('rec-list').innerHTML = '<p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>';
+  // Backend returns object rows; we also need row index for upsert/delete.
+  // Re-fetch and tag with index = position+2 (1-based + header).
+  const raw = await Api.apiHrListRecurringDeductions(userIdToken);
+  recurring = raw.map((r, idx) => ({ ...r, _row_index: idx + 2 }));
+  renderRec();
+}
+function renderRec() {
+  const root = $('rec-list');
+  if (recurring.length === 0) {
+    root.innerHTML = '<p class="text-sm text-slate-500 text-center py-3">ยังไม่มีรายการ</p>';
+    return;
+  }
+  root.innerHTML = recurring.map((r, idx) => `
+    <div class="py-3 flex items-start justify-between gap-3 cursor-pointer" data-idx="${idx}">
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">${empName(r.emp_code)} · ${DED_TYPE[r.deduction_type] || r.deduction_type}</p>
+        <p class="text-xs text-slate-500 truncate">−${formatBaht(r.amount)} · ${r.effective_from || '?'}${r.effective_to ? ' → ' + r.effective_to : ''}</p>
+      </div>
+      <span class="text-slate-400 text-lg shrink-0">›</span>
+    </div>
+  `).join('');
+  root.querySelectorAll('[data-idx]').forEach(el => {
+    el.addEventListener('click', () => openRecModal(recurring[Number(el.dataset.idx)]));
+  });
+}
+function openRecModal(item) {
+  const isEdit = !!item;
+  openModal({
+    title: isEdit ? 'แก้ไขหักประจำ' : 'เพิ่มหักประจำ',
+    fields: [
+      { type: 'select', key: 'emp_code',       label: 'พนักงาน', value: item ? item.emp_code : '',
+        options: employeeOptions() },
+      { type: 'select', key: 'deduction_type', label: 'ประเภท', value: item ? item.deduction_type : 'studentloan',
+        options: Object.entries(DED_TYPE).map(([v, l]) => ({ value: v, label: l })) },
+      { type: 'number', key: 'amount',         label: 'จำนวนเงิน (บาท/เดือน)', value: item ? item.amount : '' },
+      { type: 'date',   key: 'effective_from', label: 'เริ่มหัก', value: item ? item.effective_from : todayISO() },
+      { type: 'date',   key: 'effective_to',   label: 'สิ้นสุด (ถ้ามี)', value: item ? item.effective_to : '' },
+      { type: 'text',   key: 'note',           label: 'หมายเหตุ', value: item ? item.note : '' },
+    ],
+    onSave: async (data) => {
+      const payload = isEdit ? { ...data, _row_index: item._row_index } : data;
+      await Api.apiHrUpsertRecurringDeduction(userIdToken, payload);
+      await loadRecDeductions();
+    },
+    onDelete: isEdit ? async () => {
+      await Api.apiHrDeleteRecurringDeduction(userIdToken, { _row_index: item._row_index });
+      await loadRecDeductions();
+    } : null,
+  });
+}
+
+/* ============ Holidays ============ */
+let holidays = [];
+async function loadHolidays() {
+  $('hol-list').innerHTML = '<p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>';
+  holidays = await Api.apiHrListHolidays(userIdToken);
+  renderHolidays();
+}
+function renderHolidays() {
+  const root = $('hol-list');
+  if (holidays.length === 0) {
+    root.innerHTML = '<p class="text-sm text-slate-500 text-center py-3">ยังไม่มีวันหยุด</p>';
+    return;
+  }
+  const sorted = holidays.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  root.innerHTML = sorted.map(h => `
+    <div class="py-3 flex items-start justify-between gap-3 cursor-pointer" data-date="${escape(h.date)}">
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">${escape(h.name)}</p>
+        <p class="text-xs text-slate-500 truncate">${h.date} · ${HOL_TYPE[h.type] || h.type || '-'}</p>
+      </div>
+      <span class="text-slate-400 text-lg shrink-0">›</span>
+    </div>
+  `).join('');
+  root.querySelectorAll('[data-date]').forEach(el => {
+    el.addEventListener('click', () => openHolidayModal(holidays.find(h => h.date === el.dataset.date)));
+  });
+}
+function openHolidayModal(item) {
+  const isEdit = !!item;
+  openModal({
+    title: isEdit ? 'แก้ไขวันหยุด' : 'เพิ่มวันหยุด',
+    fields: [
+      { type: 'date',   key: 'date',       label: 'วันที่', value: item ? item.date : '', readonly: isEdit },
+      { type: 'text',   key: 'name',       label: 'ชื่อวันหยุด', value: item ? item.name : '' },
+      { type: 'select', key: 'type',       label: 'ประเภท', value: item ? item.type : 'public',
+        options: Object.entries(HOL_TYPE).map(([v, l]) => ({ value: v, label: l })) },
+      { type: 'text',   key: 'applies_to', label: 'ใช้กับ (เริ่มต้น all)', value: item ? item.applies_to : 'all' },
+    ],
+    onSave: async (data) => {
+      await Api.apiHrUpsertHoliday(userIdToken, data);
+      await loadHolidays();
+    },
+    onDelete: isEdit ? async () => {
+      await Api.apiHrDeleteHoliday(userIdToken, { date: item.date });
+      await loadHolidays();
+    } : null,
+  });
+}
+
+/* ============ Leave Quota ============ */
+let quotas = [];
+async function loadQuota() {
+  const year = Number($('quota-year').value);
+  if (!year) return;
+  $('quota-list').innerHTML = '<p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>';
+  quotas = await Api.apiHrListLeaveQuota(userIdToken, { year });
+  renderQuota();
+}
+function renderQuota() {
+  const root = $('quota-list');
+  if (quotas.length === 0) {
+    root.innerHTML = '<p class="text-sm text-slate-500 text-center py-3">ยังไม่มีข้อมูลปีนี้ — กดเพิ่มเพื่อตั้งโควตา</p>';
+    return;
+  }
+  root.innerHTML = quotas.map(q => `
+    <div class="py-3 flex items-start justify-between gap-3 cursor-pointer" data-emp="${escape(q.emp_code)}">
+      <div class="min-w-0">
+        <p class="text-sm font-medium truncate">${empName(q.emp_code)} (${q.year})</p>
+        <p class="text-xs text-slate-500 truncate">ป่วย ${q.sick_used || 0}/${q.sick_quota} · กิจ ${q.personal_used || 0}/${q.personal_quota} · พักร้อน ${q.vacation_used || 0}/${q.vacation_quota}</p>
+      </div>
+      <span class="text-slate-400 text-lg shrink-0">›</span>
+    </div>
+  `).join('');
+  root.querySelectorAll('[data-emp]').forEach(el => {
+    el.addEventListener('click', () => openQuotaModal(quotas.find(q => q.emp_code === el.dataset.emp)));
+  });
+}
+function openQuotaModal(item) {
+  const isEdit = !!item;
+  const year = Number($('quota-year').value);
+  openModal({
+    title: isEdit ? `โควตาลา ${item.emp_code} (${item.year})` : `เพิ่มโควตา (${year})`,
+    fields: [
+      { type: 'select', key: 'emp_code',       label: 'พนักงาน', value: item ? item.emp_code : '',
+        options: employeeOptions(), readonly: isEdit },
+      { type: 'number', key: 'sick_quota',     label: 'ลาป่วย (วัน)', value: item ? item.sick_quota : 30 },
+      { type: 'number', key: 'personal_quota', label: 'ลากิจ (วัน)',  value: item ? item.personal_quota : 3 },
+      { type: 'number', key: 'vacation_quota', label: 'พักร้อน (วัน)', value: item ? item.vacation_quota : 6 },
+    ],
+    onSave: async (data) => {
+      await Api.apiHrUpsertLeaveQuota(userIdToken, { ...data, year });
+      await loadQuota();
+    },
+  });
+}
+
+/* ============ Modal infrastructure ============ */
+function openModal({ title, fields, onSave, onDelete }) {
+  $('modal-title').textContent = title;
+  $('modal-status').textContent = '';
+  const form = $('modal-form');
+  form.innerHTML = fields.map(f => renderField(f)).join('');
+
+  $('modal-save').onclick = async () => {
+    const data = collectFormData(fields);
+    const status = $('modal-status');
+    status.textContent = '';
+    $('modal-save').disabled = true;
+    $('modal-save').textContent = 'กำลังบันทึก...';
+    try {
+      await onSave(data);
+      status.textContent = 'บันทึกสำเร็จ';
+      status.className = 'text-sm text-center min-h-[1.5em] mt-2 font-medium text-emerald-700';
+      setTimeout(closeModal, 600);
+    } catch (err) {
+      status.textContent = 'ผิดพลาด: ' + err.message;
+      status.className = 'text-sm text-center min-h-[1.5em] mt-2 font-medium text-red-600';
+      $('modal-save').disabled = false;
+      $('modal-save').textContent = 'บันทึก';
+    }
+  };
+
+  const delBtn = $('modal-delete');
+  if (onDelete) {
+    delBtn.classList.remove('hidden');
+    delBtn.onclick = async () => {
+      if (!confirm('ลบรายการนี้?')) return;
+      delBtn.disabled = true;
+      try {
+        await onDelete();
+        closeModal();
+      } catch (err) {
+        $('modal-status').textContent = 'ลบไม่สำเร็จ: ' + err.message;
+        $('modal-status').className = 'text-sm text-center min-h-[1.5em] mt-2 font-medium text-red-600';
+        delBtn.disabled = false;
+      }
+    };
+  } else {
+    delBtn.classList.add('hidden');
+    delBtn.onclick = null;
+  }
+
+  $('modal').classList.remove('hidden');
+  $('modal-save').disabled = false;
+  $('modal-save').textContent = 'บันทึก';
+}
+function closeModal() { $('modal').classList.add('hidden'); }
+
+function renderField(f) {
+  const id = `f-${f.key}`;
+  const baseClass = 'w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none';
+  const ro = f.readonly ? 'disabled' : '';
+  let input;
+  if (f.type === 'select') {
+    input = `<select id="${id}" class="${baseClass}" ${ro}>${
+      (f.options || []).map(o => `<option value="${escape(o.value)}" ${o.value === f.value ? 'selected' : ''}>${escape(o.label)}</option>`).join('')
+    }</select>`;
+  } else if (f.type === 'period') {
+    input = `<input id="${id}" type="text" pattern="^(\\d{4}-\\d{2}|\\*)$" placeholder="2026-05 หรือ *" class="${baseClass}" value="${escape(f.value || '')}" ${ro}>`;
+  } else if (f.type === 'number') {
+    input = `<input id="${id}" type="number" step="0.01" min="0" class="${baseClass}" value="${escape(f.value !== undefined && f.value !== '' ? f.value : '')}" ${ro}>`;
+  } else if (f.type === 'date') {
+    input = `<input id="${id}" type="date" class="${baseClass}" value="${escape(f.value || '')}" ${ro}>`;
+  } else {
+    input = `<input id="${id}" type="text" class="${baseClass}" value="${escape(f.value || '')}" ${ro}>`;
+  }
+  return `<div>
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">${escape(f.label)}</label>
+    ${input}
+    ${f.hint ? `<p class="text-xs text-slate-400 mt-1">${escape(f.hint)}</p>` : ''}
+  </div>`;
+}
+function collectFormData(fields) {
+  const data = {};
+  fields.forEach(f => {
+    const el = document.getElementById(`f-${f.key}`);
+    if (!el) return;
+    data[f.key] = el.value;
+  });
+  return data;
+}
+
+/* ============ Helpers ============ */
+function empName(code) {
+  const e = employees.find(x => x.emp_code === code);
+  return e ? `${e.first_name} ${e.last_name} (${code})` : code;
+}
+function employeeOptions() {
+  return [{ value: '', label: '— เลือก —' }].concat(
+    employees
+      .filter(e => e.status === 'active' || e.status === 'probation')
+      .map(e => ({ value: e.emp_code, label: `${e.first_name} ${e.last_name} (${e.emp_code})` }))
+  );
+}
+function formatBaht(n) {
+  return Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+function currentPeriod() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+function escape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+function showError(msg) {
+  $('emp-list').innerHTML = `<p class="text-sm text-red-700 text-center py-3">${escape(msg)}</p>`;
+}
+
+init();
+</script>
+</body>
+</html>

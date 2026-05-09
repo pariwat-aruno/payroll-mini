@@ -108,6 +108,19 @@
     </div>
   </a>
 
+  <!-- HR + Owner card -->
+  <a href="hr.html" id="hr-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">เครื่องมือ HR
+          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">HR</span>
+        </p>
+        <p class="text-xs text-slate-500 mt-0.5">จัดการเงินเพิ่ม/หัก · วันหยุด · โควตาลา · พนักงาน</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
   <!-- Owner-only cards (hidden by default) -->
   <a href="owner.html" id="owner-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
@@ -180,6 +193,9 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
       if (me && me.emp_code) {
         // Paired — reveal employee cards
         document.querySelectorAll('[data-paired-only]').forEach(el => el.removeAttribute('hidden'));
+        if (me.is_hr) {
+          document.getElementById('hr-card').removeAttribute('hidden');
+        }
         if (me.is_owner) {
           document.getElementById('owner-card').removeAttribute('hidden');
           document.getElementById('onboard-card').removeAttribute('hidden');
