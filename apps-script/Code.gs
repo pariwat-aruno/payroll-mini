@@ -98,6 +98,7 @@ function doGet(e) {
 function _getHandler(action) {
   const handlers = {
     ping: () => ({ pong: true, time: new Date().toISOString() }),
+    getMe: handleGetMe,
 
     // Leave & OT
     submitLeave: handleSubmitLeave,
@@ -196,6 +197,14 @@ function handleListMyPeriods(payload, ctx) {
 
 function handleGetMySlipPdf(payload, ctx) {
   return getMySlipPdf(ctx.empCode, payload.period);
+}
+
+function handleGetMe(payload, ctx) {
+  return {
+    emp_code: ctx.empCode,
+    user_id:  ctx.userId,
+    is_owner: ctx.empCode === 'OWNER',
+  };
 }
 
 /**

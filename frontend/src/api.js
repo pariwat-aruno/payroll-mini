@@ -112,6 +112,10 @@ async function apiPing(idToken) {
   return apiPost('ping', {}, idToken);
 }
 
+async function apiGetMe(idToken) {
+  return apiPost('getMe', {}, idToken);
+}
+
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
   window.PayrollApi = {
@@ -126,6 +130,7 @@ if (typeof window !== 'undefined') {
     apiListMyPeriods,
     apiGetMySlipPdf,
     apiPing,
+    apiGetMe,
     getBackendUrl,
   };
 }

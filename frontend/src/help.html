@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>คู่มือเจ้าของระบบ — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  code, pre { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .step-num { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:1.5rem; border-radius:9999px; background:#0f172a; color:white; font-size:0.7rem; font-weight:600; margin-right:0.5rem; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">คู่มือ · เจ้าของระบบ</p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">รอบเดือน Payroll</h1>
+    <p class="text-sm text-white/85 mt-1.5">ขั้นตอนตั้งแต่ก่อน cutoff จนถึงล็อคงวด</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3" id="main">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+    <p class="text-sm text-slate-500">กำลังตรวจสิทธิ์...</p>
+  </section>
+</main>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    const idToken = Liff.liffGetIDToken();
+    const me = await Api.apiGetMe(idToken);
+    if (!me.is_owner) {
+      forbidden();
+      return;
+    }
+    renderHelp();
+  } catch (err) {
+    document.getElementById('main').innerHTML = `
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+        <p class="text-base font-medium text-red-700">โหลดไม่สำเร็จ</p>
+        <p class="text-sm text-slate-500 mt-1 break-all">${err.message}</p>
+      </section>`;
+  }
+})();
+
+function forbidden() {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-red-700">ไม่มีสิทธิ์เข้าถึง</p>
+      <p class="text-sm text-slate-500 mt-1">หน้านี้สำหรับเจ้าของระบบเท่านั้น</p>
+    </section>`;
+}
+
+function renderHelp() {
+  document.getElementById('main').innerHTML = `
+
+  <!-- Cycle overview -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-4">รอบเดือน · 4 ขั้น</p>
+
+    <div class="space-y-4">
+      <div>
+        <p class="font-semibold text-slate-900"><span class="step-num">1</span>ก่อน CUTOFF (วันที่ 25)</p>
+        <ul class="text-sm text-slate-600 mt-1.5 ml-8 list-disc space-y-0.5">
+          <li>Import <code class="text-xs bg-slate-100 px-1 rounded">Attendance_Raw</code> จากเครื่องสแกนนิ้ว</li>
+          <li>เตือนพนักงานส่งใบลา/OT ย้อนหลัง</li>
+          <li>ตรวจ Salary_Master / Approval_Chain ถ้ามีเปลี่ยน</li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="font-semibold text-slate-900"><span class="step-num">2</span>Day 1 — Reconcile</p>
+        <ul class="text-sm text-slate-600 mt-1.5 ml-8 list-disc space-y-0.5">
+          <li>chat: <code class="text-xs bg-slate-100 px-1 rounded">/reconcile 2026-04</code></li>
+          <li>หรือเปิด <strong>กล่องอนุมัติ</strong> → กด Reconcile</li>
+          <li>รอ Flex สรุป → resolve escalations → rerun ได้</li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="font-semibold text-slate-900"><span class="step-num">3</span>Day ~3 — Payroll</p>
+        <ul class="text-sm text-slate-600 mt-1.5 ml-8 list-disc space-y-0.5">
+          <li>chat: <code class="text-xs bg-slate-100 px-1 rounded">/payroll 2026-04</code></li>
+          <li>หรือเปิด <strong>กล่องอนุมัติ</strong> → กด Payroll</li>
+          <li>เปิด Secret Sheet → Payroll_Run ตรวจตัวเลข</li>
+        </ul>
+      </div>
+
+      <div>
+        <p class="font-semibold text-slate-900"><span class="step-num">4</span>Lock งวด</p>
+        <ul class="text-sm text-slate-600 mt-1.5 ml-8 list-disc space-y-0.5">
+          <li>หลังจ่ายเงินเสร็จ → แก้ <code class="text-xs bg-slate-100 px-1 rounded">status</code> ใน Payroll_Run เป็น <code class="text-xs bg-slate-100 px-1 rounded">locked</code></li>
+          <li>ป้องกัน rerun โดยไม่ตั้งใจ</li>
+          <li>ถ้าต้องเขียนทับจริง: <code class="text-xs bg-slate-100 px-1 rounded">/payroll YYYY-MM force</code></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Escalation playbook -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">Escalation · วิธีแก้</p>
+    <div class="text-sm space-y-2.5">
+      <div>
+        <p class="font-medium text-slate-900">absent</p>
+        <p class="text-xs text-slate-500">ไม่สแกน + ไม่มีใบลา → ขอใบลาย้อนหลัง หรือเพิ่ม Schedule_Override</p>
+      </div>
+      <div>
+        <p class="font-medium text-slate-900">short_work</p>
+        <p class="text-xs text-slate-500">ทำไม่ครบ 8 ชม. → ตรวจ clock_in/out หรือเพิ่มเวลา OT</p>
+      </div>
+      <div>
+        <p class="font-medium text-slate-900">ot_unrequested</p>
+        <p class="text-xs text-slate-500">ทำเกิน 8 ชม. แต่ไม่มี OT request → ขอ OT ย้อนหลัง</p>
+      </div>
+      <div>
+        <p class="font-medium text-slate-900">weekend_work_unrequested</p>
+        <p class="text-xs text-slate-500">สแกนวันหยุดแต่ไม่มี OT → ขอ OT ย้อนหลัง</p>
+      </div>
+      <div>
+        <p class="font-medium text-slate-900">leave_pending</p>
+        <p class="text-xs text-slate-500">ใบลายังไม่อนุมัติ → ตามอนุมัติ/ปฏิเสธ</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Commands -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">คำสั่งใน LINE Chat</p>
+    <pre class="bg-slate-900 text-slate-100 text-xs p-4 rounded-lg overflow-x-auto leading-relaxed">/help                       แสดงคำสั่งทั้งหมด
+/reconcile                  reconcile เดือนก่อน
+/reconcile 2026-04          งวดที่ระบุ
+/payroll                    payroll เดือนก่อน
+/payroll 2026-04            งวดที่ระบุ
+/payroll 2026-04 force      บังคับเขียนทับงวด locked</pre>
+  </section>
+
+  <!-- Edge cases -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">Edge Cases</p>
+    <details class="text-sm border-b border-slate-100 py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">พนักงานใหม่</summary>
+      <ul class="ml-4 mt-2 text-xs text-slate-600 list-disc space-y-0.5">
+        <li>เพิ่ม row ใน Employees (status=active หรือ probation)</li>
+        <li>เพิ่ม Work_Schedule, Approval_Chain, Leave_Quota (Public)</li>
+        <li>เพิ่ม Salary_Master, LINE_User_Map (Secret)</li>
+      </ul>
+    </details>
+    <details class="text-sm border-b border-slate-100 py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">พนักงานออก</summary>
+      <p class="ml-4 mt-2 text-xs text-slate-600">Employees → status=resigned, end_date=วันสุดท้าย → ระบบจะข้ามอัตโนมัติงวดถัดไป</p>
+    </details>
+    <details class="text-sm border-b border-slate-100 py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">ปรับเงินเดือน mid-period</summary>
+      <p class="ml-4 mt-2 text-xs text-slate-600">เพิ่ม row ใหม่ใน Salary_Master พร้อม effective_date — ระบบใช้ row ที่ active ณ วันสิ้นงวด</p>
+    </details>
+    <details class="text-sm border-b border-slate-100 py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">หัวหน้าเปลี่ยน</summary>
+      <p class="ml-4 mt-2 text-xs text-slate-600">เพิ่ม row ใหม่ใน Approval_Chain พร้อม effective_from — ใบลา/OT ใหม่จะใช้ approver ใหม่</p>
+    </details>
+    <details class="text-sm border-b border-slate-100 py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">โบนัส / หักเฉพาะกิจ</summary>
+      <p class="ml-4 mt-2 text-xs text-slate-600">เพิ่ม row ใน Monthly_Adjustments (period, direction=addition/deduction, category, amount) → rerun /payroll</p>
+    </details>
+    <details class="text-sm py-2">
+      <summary class="cursor-pointer font-medium text-slate-900">เจอ bug หลัง lock</summary>
+      <p class="ml-4 mt-2 text-xs text-slate-600">ใช้ /payroll YYYY-MM force — Audit_Log บันทึกการเขียนทับไว้ → แจ้งพนักงาน manual</p>
+    </details>
+  </section>
+
+  <!-- Sheets reference -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">Sheets Reference</p>
+    <div class="text-xs">
+      <p class="font-semibold text-slate-900 mb-1">Public (HR เห็น — ไม่มีเงิน)</p>
+      <p class="text-slate-500 mb-3">Employees · Holiday_Calendar · Work_Schedule · Schedule_Override · Leave_Quota · Leave_Records · OT_Requests · Approval_Chain · Approval_Rules · Settings · Attendance_Raw · Attendance_Reconciled · Monthly_Summary · Escalation_Queue</p>
+      <p class="font-semibold text-slate-900 mb-1">Secret (เจ้าของเห็นคนเดียว)</p>
+      <p class="text-slate-500">Salary_Master · Recurring_Deductions · Monthly_Adjustments · Payroll_Run · YTD_Accumulator · Audit_Log · LINE_User_Map</p>
+    </div>
+  </section>
+
+  <p class="text-center text-xs text-slate-400 pt-2">HumanAI Payroll · v0.1</p>
+  `;
+}
+</script>
+</body>
+</html>

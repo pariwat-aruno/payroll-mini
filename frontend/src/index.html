@@ -83,13 +83,26 @@
     </div>
   </a>
 
-  <a href="owner.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <!-- Owner-only cards (hidden by default) -->
+  <a href="owner.html" id="owner-card" class="menu-card hidden bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">กล่องอนุมัติ
           <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
         </p>
-        <p class="text-xs text-slate-500 mt-0.5">อนุมัติ/ปฏิเสธคำขอที่รออยู่</p>
+        <p class="text-xs text-slate-500 mt-0.5">อนุมัติ/ปฏิเสธคำขอที่รออยู่ + รัน Reconcile/Payroll</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
+  <a href="help.html" id="help-card" class="menu-card hidden bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">คู่มือเจ้าของระบบ
+          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+        </p>
+        <p class="text-xs text-slate-500 mt-0.5">รอบเดือน · escalation playbook · คำสั่ง chat</p>
       </div>
       <span class="text-slate-400 text-xl">›</span>
     </div>
@@ -112,6 +125,15 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     const profile = await Liff.liffGetProfile();
     document.getElementById('user-greeting').textContent = profile.displayName;
+
+    // Reveal owner-only cards if applicable
+    try {
+      const me = await window.PayrollApi.apiGetMe(Liff.liffGetIDToken());
+      if (me && me.is_owner) {
+        document.getElementById('owner-card').classList.remove('hidden');
+        document.getElementById('help-card').classList.remove('hidden');
+      }
+    } catch (_) { /* not mapped — leave cards hidden */ }
   } catch (err) {
     document.getElementById('user-greeting').textContent = '—';
   }
