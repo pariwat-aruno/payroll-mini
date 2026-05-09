@@ -271,6 +271,48 @@ function submitOT(payload, ctx) {
 }
 
 /**
+ * Recent leave records for one employee, newest first.
+ *
+ * Aggregates per request_group_id (multi-day leaves collapse to one entry)
+ * so the UI shows distinct submissions, not one row per day.
+ */
+function getMyHistory(empCode, limit) {
+  limit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+  const records = readTab_(getPublicSheet_(), 'Leave_Records')
+    .filter(r => r.emp_code === empCode);
+
+  // Group by request_group_id (or by leave_id if no group)
+  const groups = {};
+  records.forEach(r => {
+    const k = r.request_group_id || r.leave_id;
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+
+  const items = Object.keys(groups).map(k => {
+    const rs = groups[k];
+    rs.sort((a, b) => String(a.date) < String(b.date) ? -1 : 1);
+    const first = rs[0];
+    const last = rs[rs.length - 1];
+    return {
+      group_id: k,
+      leave_type: first.leave_type,
+      reason: first.reason || '',
+      status: first.status,
+      submitted_at: first.submitted_at,
+      start_date: formatDate_(first.date),
+      end_date: formatDate_(last.date),
+      days: rs.length,
+      is_backdated: String(first.is_backdated).toUpperCase() === 'TRUE',
+    };
+  });
+
+  // Newest submitted first
+  items.sort((a, b) => String(b.submitted_at).localeCompare(String(a.submitted_at)));
+  return items.slice(0, limit);
+}
+
+/**
  * Get my leave quota (current year).
  */
 function getMyQuota(empCode) {

@@ -103,6 +103,7 @@ function _getHandler(action) {
     submitLeave: handleSubmitLeave,
     submitOT: handleSubmitOT,
     getMyQuota: handleGetMyQuota,
+    getMyHistory: handleGetMyHistory,
 
     // Owner-only — handler enforces role check internally
     runReconcile: handleRunReconcile,
@@ -144,6 +145,10 @@ function handleSubmitOT(payload, ctx) {
 
 function handleGetMyQuota(payload, ctx) {
   return getMyQuota(ctx.empCode);
+}
+
+function handleGetMyHistory(payload, ctx) {
+  return getMyHistory(ctx.empCode, payload.limit);
 }
 
 function handleRunReconcile(payload, ctx) {

@@ -84,6 +84,10 @@ async function apiGetMyQuota(idToken) {
   return apiPost('getMyQuota', {}, idToken);
 }
 
+async function apiGetMyHistory(idToken, limit) {
+  return apiPost('getMyHistory', { limit: limit || 10 }, idToken);
+}
+
 async function apiPing(idToken) {
   return apiPost('ping', {}, idToken);
 }
@@ -95,6 +99,7 @@ if (typeof window !== 'undefined') {
     apiSubmitLeave,
     apiSubmitOT,
     apiGetMyQuota,
+    apiGetMyHistory,
     apiPing,
     getBackendUrl,
   };

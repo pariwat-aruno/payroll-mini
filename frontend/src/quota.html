@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>สิทธิ์ลา — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">สิทธิ์การลา</h1>
+    <p class="text-sm text-white/85 mt-1.5">สิทธิ์คงเหลือและประวัติการลา</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3">
+
+<!-- Quota -->
+<section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+  <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-4">สิทธิ์คงเหลือ · ปีนี้</p>
+  <div id="quota-display" class="grid grid-cols-3 divide-x divide-slate-200">
+    <div class="col-span-3 text-center text-sm text-slate-500 py-3">กำลังโหลด...</div>
+  </div>
+</section>
+
+<!-- History -->
+<section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+  <div class="flex items-baseline justify-between mb-3">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ประวัติการลา</p>
+    <p class="text-[11px] text-slate-400">10 รายการล่าสุด</p>
+  </div>
+  <div id="history-display" class="space-y-2">
+    <p class="text-sm text-slate-500 text-center py-3">กำลังโหลด...</p>
+  </div>
+</section>
+
+<!-- Action -->
+<div class="pt-1 px-1">
+  <a href="leave.html" id="new-leave-btn"
+     class="block w-full text-center bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] transition">
+    + ขอลาใหม่
+  </a>
+</div>
+
+</main>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+
+const TYPE_LABEL = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'พักร้อน', unpaid: 'ลาไม่รับเงิน' };
+
+const STATUS_PILL = {
+  approved:    { label: 'อนุมัติ',  cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' },
+  rejected:    { label: 'ปฏิเสธ',   cls: 'bg-red-50 text-red-700 ring-1 ring-red-200' },
+  cancelled:   { label: 'ยกเลิก',   cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' },
+  pending_L1:  { label: 'รอ L1',    cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
+  pending_L2:  { label: 'รอ L2',    cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
+  pending_L3:  { label: 'รอ L3',    cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200' },
+};
+
+function pillFor(status) {
+  return STATUS_PILL[status] || { label: status, cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' };
+}
+
+async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    const profile = await Liff.liffGetProfile();
+    userIdToken = Liff.liffGetIDToken();
+    document.getElementById('user-greeting').textContent = profile.displayName;
+
+    // Run quota + history in parallel
+    await Promise.all([loadQuota(), loadHistory()]);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function loadQuota() {
+  const display = document.getElementById('quota-display');
+  try {
+    const quota = await Api.apiGetMyQuota(userIdToken);
+    if (!quota) {
+      display.innerHTML = '<div class="col-span-3 text-center text-sm text-slate-500 py-3">ยังไม่ได้กำหนดสิทธิ์</div>';
+      return;
+    }
+    const types = [
+      { key: 'sick',     label: 'ลาป่วย'  },
+      { key: 'personal', label: 'ลากิจ'   },
+      { key: 'vacation', label: 'พักร้อน' },
+    ];
+    display.innerHTML = types.map(t => {
+      const q = quota[t.key];
+      const numColor = q.remain === 0 ? 'text-red-600' :
+                        q.remain <= 2 ? 'text-amber-600' :
+                                        'text-slate-900';
+      return `
+        <div class="text-center px-2">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">${t.label}</p>
+          <p class="text-3xl font-bold ${numColor} mt-1.5 leading-none">${q.remain}</p>
+          <p class="text-[11px] text-slate-400 mt-1">จาก ${q.quota}</p>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    display.innerHTML = `<div class="col-span-3 text-center text-sm text-red-600 py-3">โหลดสิทธิ์ไม่ได้</div>`;
+  }
+}
+
+function fmtDate(s) {
+  // YYYY-MM-DD → DD MMM YYYY (Thai short)
+  if (!s) return '';
+  const [y, m, d] = s.split('-');
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+async function loadHistory() {
+  const display = document.getElementById('history-display');
+  try {
+    const items = await Api.apiGetMyHistory(userIdToken, 10);
+    if (!items || items.length === 0) {
+      display.innerHTML = '<p class="text-sm text-slate-500 text-center py-6">ยังไม่มีประวัติการลา</p>';
+      return;
+    }
+    display.innerHTML = items.map(it => {
+      const pill = pillFor(it.status);
+      const dateLabel = it.start_date === it.end_date
+        ? fmtDate(it.start_date)
+        : `${fmtDate(it.start_date)} – ${fmtDate(it.end_date)}`;
+      const typeLabel = TYPE_LABEL[it.leave_type] || it.leave_type;
+      return `
+        <div class="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-900">${typeLabel} <span class="text-xs text-slate-500 font-normal">· ${it.days} วัน</span></p>
+            <p class="text-xs text-slate-500 mt-0.5">${dateLabel}</p>
+            ${it.reason ? `<p class="text-xs text-slate-400 mt-0.5 truncate">${it.reason}</p>` : ''}
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${pill.cls}">${pill.label}</span>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    display.innerHTML = `<p class="text-sm text-red-600 text-center py-3">โหลดประวัติไม่ได้</p>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
