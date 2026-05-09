@@ -14,6 +14,17 @@
 function verifyIdToken(idToken) {
   if (!idToken) return { ok: false, error: 'missing_id_token' };
 
+  // Cache verified result for 60s — idToken is good for an hour, but we re-verify
+  // every minute as a safety margin in case LINE invalidates a session.
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'vit:' + Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken)
+  ).substring(0, 22);
+  const hit = cache.get(cacheKey);
+  if (hit) {
+    try { return JSON.parse(hit); } catch (_) { /* fall through */ }
+  }
+
   const channelId = PropertiesService.getScriptProperties()
     .getProperty('LINE_CHANNEL_ID');
   if (!channelId) return { ok: false, error: 'channel_id_not_configured' };
@@ -38,12 +49,14 @@ function verifyIdToken(idToken) {
       return { ok: false, error: 'verify_failed: ' + (body.error_description || body.error || code) };
     }
 
-    return {
+    const result = {
       ok: true,
       userId: body.sub,
       displayName: body.name,
       picture: body.picture,
     };
+    try { cache.put(cacheKey, JSON.stringify(result), 60); } catch (_) {}
+    return result;
   } catch (err) {
     return { ok: false, error: 'verify_exception: ' + err };
   }
@@ -55,13 +68,22 @@ function verifyIdToken(idToken) {
  * Uses the LINE_User_Map tab in Secret Sheet.
  */
 function lookupEmpCodeByUserId(userId) {
+  if (!userId) return null;
+
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'emp:' + userId;
+  const hit = cache.get(cacheKey);
+  if (hit !== null) return hit === '__null__' ? null : hit;
+
   const secret = getSecretSheet_();
   const map = readTab_(secret, 'LINE_User_Map');
   const row = map.find(r => r.line_user_id === userId);
-  if (!row) return null;
-  // Update last_seen
-  _touchUserMapping(userId);
-  return row.emp_code;
+  const empCode = row ? row.emp_code : null;
+  try { cache.put(cacheKey, empCode || '__null__', 300); } catch (_) {}
+
+  // Update last_seen only on cache miss (cuts the per-request write)
+  if (row) _touchUserMapping(userId);
+  return empCode;
 }
 
 function _touchUserMapping(userId) {
@@ -174,10 +196,18 @@ function pushLineMessage(userId, text) {
  * Returns null if no mapping exists yet (employee hasn't onboarded).
  */
 function lookupUserIdByEmpCode(empCode) {
+  if (!empCode) return null;
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'uid:' + empCode;
+  const hit = cache.get(cacheKey);
+  if (hit !== null) return hit === '__null__' ? null : hit;
+
   const secret = getSecretSheet_();
   const map = readTab_(secret, 'LINE_User_Map');
   const row = map.find(r => r.emp_code === empCode);
-  return row ? row.line_user_id : null;
+  const userId = row ? row.line_user_id : null;
+  try { cache.put(cacheKey, userId || '__null__', 300); } catch (_) {}
+  return userId;
 }
 
 /**

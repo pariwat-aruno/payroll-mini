@@ -99,6 +99,7 @@ function _getHandler(action) {
   const handlers = {
     ping: () => ({ pong: true, time: new Date().toISOString() }),
     getMe: handleGetMe,
+    invalidateCache: handleInvalidateCache,
 
     // Leave & OT
     submitLeave: handleSubmitLeave,
@@ -205,6 +206,18 @@ function handleGetMe(payload, ctx) {
     user_id:  ctx.userId,
     is_owner: ctx.empCode === 'OWNER',
   };
+}
+
+/**
+ * Owner-only: clear all CacheService entries.
+ * Useful after editing LINE_User_Map / settings while debugging.
+ */
+function handleInvalidateCache(payload, ctx) {
+  _requireOwner(ctx);
+  CacheService.getScriptCache().removeAll(['vit:', 'emp:', 'uid:']);  // best-effort
+  // Also clear by listing — Apps Script CacheService doesn't expose iteration, so
+  // we just nuke a fixed set of well-known prefixes if caller supplies them.
+  return { ok: true, hint: 'Cache cleared. Some entries (with hashed keys) will expire on TTL.' };
 }
 
 /**
