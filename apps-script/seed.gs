@@ -89,12 +89,15 @@ const _DUMMY = {
     ['EMP005', '2026-05-08', '09:00', '18:00', 540, 'fingerprint', '2026-05-08 18:01:00'],
   ],
 
+  // ot_1 = 1.5× hourly  (weekday OT)
+  // ot_2 = 1.0× hourly  (rest-day work — extra on top of base salary, total 2×)
+  // ot_3 = 3.0× hourly  (OT on a rest/holiday)
   salaryMaster: [
-    ['EMP001', '2022-01-15', 45000, 1500, 187.50, 281.25, 375.00, 562.50, true, 0.05, ''],
-    ['EMP002', '2023-03-01', 65000, 2166.67, 270.83, 406.25, 541.67, 812.50, true, 0.05, ''],
-    ['EMP003', '2024-06-10', 35000, 1166.67, 145.83, 218.75, 291.67, 437.50, true, 0.05, ''],
-    ['EMP004', '2025-11-20', 30000, 1000, 125.00, 187.50, 250.00, 375.00, true, 0, 'probation no PF'],
-    ['EMP005', '2024-09-05', 40000, 1333.33, 166.67, 250.00, 333.33, 500.00, true, 0.05, ''],
+    ['EMP001', '2022-01-15', 45000, 1500, 187.50, 281.25, 187.50, 562.50, true, 0.05, ''],
+    ['EMP002', '2023-03-01', 65000, 2166.67, 270.83, 406.25, 270.83, 812.50, true, 0.05, ''],
+    ['EMP003', '2024-06-10', 35000, 1166.67, 145.83, 218.75, 145.83, 437.50, true, 0.05, ''],
+    ['EMP004', '2025-11-20', 30000, 1000, 125.00, 187.50, 125.00, 375.00, true, 0, 'probation no PF'],
+    ['EMP005', '2024-09-05', 40000, 1333.33, 166.67, 250.00, 166.67, 500.00, true, 0.05, ''],
   ],
 
   recurringDeductions: [
@@ -166,7 +169,7 @@ const _OWNER_DATA = {
   Work_Schedule:   ['OWNER', '2020-01-01', 'fixed', '1111100', 8, 'system owner'],
   Leave_Quota:     ['OWNER', 2026, 30, '', 3, '', 15, ''],
   Approval_Chain:  ['OWNER', 'OWNER', '', '', '2020-01-01', 'self-approval'],
-  Salary_Master:   ['OWNER', '2020-01-01', 100000, 3333.33, 416.67, 625.00, 833.33, 1250.00, false, 0, 'owner'],
+  Salary_Master:   ['OWNER', '2020-01-01', 100000, 3333.33, 416.67, 625.00, 416.67, 1250.00, false, 0, 'owner'],
 };
 
 function seedOwner() {
@@ -202,6 +205,37 @@ function seedOwner() {
 
   Logger.log(summary.join('\n'));
   return summary;
+}
+
+/**
+ * Migration: rest-day OT rate (ot_2_rate) was originally seeded as 2× hourly,
+ * but per Thai labor practice for monthly-salaried staff, the EXTRA paid on a
+ * rest day is 1× hourly (base wage already covers the day, so total = 2×).
+ * This rewrites ot_2_rate to equal hourly_rate for every row in Salary_Master.
+ */
+function fixOtRates() {
+  const sheet = getSecretSheet_().getSheetByName('Salary_Master');
+  if (!sheet) { Logger.log('Salary_Master not found'); return 0; }
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const hourlyCol = headers.indexOf('hourly_rate') + 1;
+  const ot2Col    = headers.indexOf('ot_2_rate') + 1;
+  if (hourlyCol === 0 || ot2Col === 0) {
+    Logger.log('hourly_rate or ot_2_rate column missing'); return 0;
+  }
+
+  let updated = 0;
+  for (let r = 2; r <= lastRow; r++) {
+    const hourly = Number(sheet.getRange(r, hourlyCol).getValue());
+    const ot2    = Number(sheet.getRange(r, ot2Col).getValue());
+    if (!hourly) continue;
+    if (Math.abs(ot2 - hourly) < 0.01) continue;  // already correct
+    sheet.getRange(r, ot2Col).setValue(hourly);
+    updated++;
+  }
+  Logger.log('Updated ot_2_rate on ' + updated + ' rows');
+  return updated;
 }
 
 /**

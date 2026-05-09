@@ -224,7 +224,11 @@ function sendApprovalFlex(approverUserId, req) {
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
   } else {
     // OT: type + time + reason
-    const otTypeMap = { weekday: 'วันทำงาน (1.5x)', rest: 'วันหยุด (2x)', holiday: 'นักขัตฤกษ์ (3x)' };
+    const otTypeMap = {
+      weekday: 'ล่วงเวลา (1.5×)',
+      rest:    'ทำงานวันหยุด (+1×)',
+      holiday: 'ล่วงเวลาในวันหยุด (3×)',
+    };
     bodyContents.push(_flexRow('ประเภท', otTypeMap[req.otType] || req.otType || req.leaveType || '-'));
     if (req.startTime || req.endTime) {
       bodyContents.push(_flexRow('เวลา', `${req.startTime || '?'} – ${req.endTime || '?'}`));

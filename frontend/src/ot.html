@@ -52,12 +52,20 @@
   <!-- Type pick -->
   <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
     <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">ประเภท OT</label>
-    <div class="grid grid-cols-3 gap-2.5" id="type-buttons">
-      <button type="button" data-type="weekday" class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">วันทำงาน</button>
-      <button type="button" data-type="rest"    class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">วันหยุด</button>
-      <button type="button" data-type="holiday" class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">นักขัตฤกษ์</button>
+    <div class="grid grid-cols-1 gap-2.5" id="type-buttons">
+      <button type="button" data-type="weekday" class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
+        <span>ล่วงเวลา</span>
+        <span class="text-[11px] text-slate-400">1.5×</span>
+      </button>
+      <button type="button" data-type="rest"    class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
+        <span>ทำงานวันหยุด</span>
+        <span class="text-[11px] text-slate-400">+1× (รวม 2×)</span>
+      </button>
+      <button type="button" data-type="holiday" class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
+        <span>ล่วงเวลาในวันหยุด</span>
+        <span class="text-[11px] text-slate-400">3×</span>
+      </button>
     </div>
-    <p class="text-[11px] text-slate-400 mt-2">วันทำงาน 1.5x · วันหยุด 2x · นักขัตฤกษ์ 3x</p>
     <input type="hidden" name="ot_type" id="ot_type" required>
   </section>
 
