@@ -4,7 +4,25 @@
 <meta charset="UTF-8">
 <title>เพิ่มพนักงานใหม่ — HumanAI Payroll</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // DIAGNOSTIC — captures errors before anything else runs.
+  window.__diagSteps = [];
+  function diag(step) {
+    window.__diagSteps.push(step + ' @ ' + (performance.now()|0) + 'ms');
+    var d = document.getElementById('diag-banner');
+    if (d) d.textContent = '[diag] ' + window.__diagSteps.join(' → ');
+  }
+  window.addEventListener('error', function(e) {
+    diag('ERROR: ' + (e.message || 'unknown') + ' (' + (e.filename||'').split('/').pop() + ':' + e.lineno + ')');
+    var d = document.getElementById('diag-banner');
+    if (d) { d.style.background = '#fee'; d.style.color = '#900'; }
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    diag('REJECTED: ' + (e.reason && e.reason.message || e.reason || 'unknown'));
+  });
+  diag('head-script');
+</script>
+<script src="https://cdn.tailwindcss.com" onload="diag('tailwind-loaded')" onerror="diag('tailwind-FAILED')"></script>
 <script>
   tailwind.config = {
     safelist: [
@@ -12,7 +30,7 @@
     ],
   };
 </script>
-<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" onload="diag('liff-sdk-loaded')" onerror="diag('liff-sdk-FAILED')"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
@@ -24,8 +42,10 @@
   input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; max-width: 100%; box-sizing: border-box; }
 </style>
 </head>
-<body class="bg-slate-100 text-slate-900 min-h-screen">
-<div class="max-w-lg mx-auto pb-10">
+<body class="bg-slate-100 text-slate-900 min-h-screen" style="background:#f1f5f9;color:#0f172a;font-family:system-ui,sans-serif;margin:0;min-height:100vh;">
+<div id="diag-banner" style="background:#fef3c7;color:#78350f;padding:12px;font-size:13px;font-family:monospace;word-break:break-all;border-bottom:1px solid #fbbf24;">[diag] booting…</div>
+<script>diag('body-start')</script>
+<div class="max-w-lg mx-auto pb-10" style="max-width:512px;margin:0 auto;padding-bottom:40px;">
 
 <div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
   Local dev mode — using mock LIFF
@@ -54,8 +74,9 @@
 
 </div>
 
-<script src="liff-bridge.js"></script>
-<script src="api.js"></script>
+<script>diag('before-bridge-load')</script>
+<script src="liff-bridge.js" onload="diag('bridge-loaded')" onerror="diag('bridge-FAILED')"></script>
+<script src="api.js" onload="diag('api-loaded')" onerror="diag('api-FAILED')"></script>
 <script>
 const Liff = window.LiffBridge;
 const Api  = window.PayrollApi;
@@ -67,11 +88,16 @@ let userIdToken = null;
 let employees = [];
 
 (async function init() {
+  diag('init-start');
   try {
+    diag('before-liffInit');
     await Liff.liffInit(LIFF_ID);
+    diag('after-liffInit (mock=' + Liff.liffIsMock() + ')');
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     userIdToken = Liff.liffGetIDToken();
+    diag('got-token');
     renderForm();  // render immediately — no pre-fetch
+    diag('renderForm-done');
     // Background: fetch employee list to upgrade approver fields to dropdowns
     Api.apiListEmployees(userIdToken).then(list => {
       employees = list;
