@@ -7,111 +7,92 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
-  body { font-family: 'Sarabun', 'Noto Sans Thai', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
-  /* Make iOS native date inputs look consistent */
+  body { font-family: 'Sarabun', 'Inter', 'Noto Sans Thai', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen">
+<body class="bg-slate-100 text-slate-900 min-h-screen">
 <div class="max-w-lg mx-auto pb-10">
 
 <!-- Mock banner -->
 <div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
-  ⚙️ Local dev mode — using mock LIFF
+  Local dev mode — using mock LIFF
 </div>
 
-<!-- Header (gradient hero) -->
-<header class="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white px-6 pt-8 pb-14 rounded-b-3xl shadow-lg">
-  <div class="flex items-center gap-3">
-    <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-2xl">
-      👋
-    </div>
-    <div>
-      <p class="text-xs text-white/80">สวัสดี</p>
-      <p id="user-greeting" class="text-lg font-semibold leading-tight">กำลังโหลด...</p>
-    </div>
-  </div>
-  <h1 class="mt-6 text-3xl font-bold">ส่งใบลา</h1>
-  <p class="text-sm text-white/80 mt-1">กรอกฟอร์มเพื่อขออนุมัติ</p>
+<!-- Header -->
+<header class="bg-slate-900 text-white px-6 pt-8 pb-10">
+  <p class="text-[11px] text-slate-400 uppercase tracking-[0.18em] font-semibold">
+    <span>สวัสดี ·</span>
+    <span id="user-greeting">กำลังโหลด</span>
+  </p>
+  <h1 class="mt-4 text-3xl font-bold tracking-tight">ส่งใบลา</h1>
+  <p class="text-sm text-slate-300 mt-1.5">กรอกฟอร์มเพื่อขออนุมัติ</p>
 </header>
 
-<main class="px-4 -mt-8 space-y-4">
+<main class="px-4 -mt-4 space-y-3">
 
-<!-- Quota card -->
-<section class="bg-white rounded-2xl shadow-sm p-5">
-  <p class="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">สิทธิ์ลาคงเหลือ · ปีนี้</p>
-  <div id="quota-display" class="grid grid-cols-3 gap-2">
-    <div class="col-span-3 bg-slate-100 rounded-xl p-4 text-center text-sm text-slate-500">
+<!-- Quota -->
+<section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+  <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-4">สิทธิ์ลาคงเหลือ</p>
+  <div id="quota-display" class="grid grid-cols-3 divide-x divide-slate-200">
+    <div class="col-span-3 text-center text-sm text-slate-500 py-3">
       กำลังโหลด...
     </div>
   </div>
 </section>
 
-<!-- Form -->
-<form id="leave-form" class="space-y-4">
+<form id="leave-form" class="space-y-3">
 
   <!-- Type pick -->
-  <section class="bg-white rounded-2xl shadow-sm p-5">
-    <label class="block text-sm font-semibold mb-3">ประเภทการลา</label>
-    <div class="grid grid-cols-2 gap-3" id="type-buttons">
-      <button type="button" data-type="sick" class="leave-type-btn flex flex-col items-center gap-1 p-4 rounded-xl border-2 border-slate-200 bg-white transition active:scale-95">
-        <span class="text-3xl leading-none">🤒</span>
-        <span class="text-sm font-medium">ลาป่วย</span>
-      </button>
-      <button type="button" data-type="personal" class="leave-type-btn flex flex-col items-center gap-1 p-4 rounded-xl border-2 border-slate-200 bg-white transition active:scale-95">
-        <span class="text-3xl leading-none">☕</span>
-        <span class="text-sm font-medium">ลากิจ</span>
-      </button>
-      <button type="button" data-type="vacation" class="leave-type-btn flex flex-col items-center gap-1 p-4 rounded-xl border-2 border-slate-200 bg-white transition active:scale-95">
-        <span class="text-3xl leading-none">🏖️</span>
-        <span class="text-sm font-medium">พักร้อน</span>
-      </button>
-      <button type="button" data-type="unpaid" class="leave-type-btn flex flex-col items-center gap-1 p-4 rounded-xl border-2 border-slate-200 bg-white transition active:scale-95">
-        <span class="text-3xl leading-none">💸</span>
-        <span class="text-sm font-medium">ไม่รับเงิน</span>
-      </button>
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">ประเภทการลา</label>
+    <div class="grid grid-cols-2 gap-2.5" id="type-buttons">
+      <button type="button" data-type="sick"     class="leave-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">ลาป่วย</button>
+      <button type="button" data-type="personal" class="leave-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">ลากิจ</button>
+      <button type="button" data-type="vacation" class="leave-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">พักร้อน</button>
+      <button type="button" data-type="unpaid"   class="leave-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">ไม่รับเงิน</button>
     </div>
     <input type="hidden" name="leave_type" id="leave_type" required>
   </section>
 
   <!-- Dates -->
-  <section class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-4">
     <div>
-      <label class="block text-sm font-semibold mb-2">วันที่เริ่มลา</label>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่เริ่มลา</label>
       <input type="date" name="start_date" id="start_date" required
-             class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-indigo-500 focus:bg-white focus:outline-none transition">
+             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition">
     </div>
     <div>
-      <label class="block text-sm font-semibold mb-2">วันที่สิ้นสุด</label>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่สิ้นสุด</label>
       <input type="date" name="end_date" id="end_date" required
-             class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-base focus:border-indigo-500 focus:bg-white focus:outline-none transition">
+             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition">
     </div>
     <p id="day-count" class="text-sm font-semibold text-indigo-600 min-h-[1.25em]"></p>
   </section>
 
   <!-- Reason -->
-  <section class="bg-white rounded-2xl shadow-sm p-5">
-    <label class="block text-sm font-semibold mb-2">เหตุผล</label>
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">เหตุผล</label>
     <textarea name="reason" id="reason" rows="3"
-              class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 text-base resize-none focus:border-indigo-500 focus:bg-white focus:outline-none transition"
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 resize-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition"
               placeholder="ระบุเหตุผลสั้นๆ"></textarea>
   </section>
 
   <!-- Evidence -->
-  <section class="bg-white rounded-2xl shadow-sm p-5">
-    <label class="block text-sm font-semibold mb-2">
-      แนบหลักฐาน <span class="text-slate-400 font-normal">(ถ้ามี)</span>
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
+      แนบหลักฐาน <span class="text-slate-400 normal-case tracking-normal">(ถ้ามี)</span>
     </label>
     <input type="url" name="evidence_url" id="evidence_url"
-           class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl p-3 text-base focus:border-indigo-500 focus:bg-white focus:outline-none transition"
+           class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition"
            placeholder="ลิงก์ Google Drive / Photos">
-    <p class="text-xs text-slate-400 mt-2">เช่น ใบรับรองแพทย์ (ลาป่วยเกิน 3 วัน)</p>
+    <p class="text-xs text-slate-500 mt-2">เช่น ใบรับรองแพทย์ (ลาป่วยเกิน 3 วัน)</p>
   </section>
 
   <!-- Submit -->
-  <div class="pt-1">
+  <div class="pt-1 px-1">
     <button type="submit" id="submit-btn"
-            class="w-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-white py-4 rounded-2xl font-semibold text-base shadow-lg shadow-indigo-500/30 active:scale-[0.98] disabled:from-slate-300 disabled:to-slate-400 disabled:shadow-none transition">
+            class="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase active:scale-[0.99] disabled:bg-slate-400 transition">
       ส่งใบลา
     </button>
   </div>
@@ -153,33 +134,28 @@ async function loadQuota() {
   try {
     const quota = await Api.apiGetMyQuota(userIdToken);
     if (!quota) {
-      display.innerHTML = '<div class="col-span-3 bg-slate-100 rounded-xl p-4 text-center text-sm text-slate-500">ยังไม่ได้กำหนดสิทธิ์</div>';
+      display.innerHTML = '<div class="col-span-3 text-center text-sm text-slate-500 py-3">ยังไม่ได้กำหนดสิทธิ์</div>';
       return;
     }
     const types = [
-      { key: 'sick',     label: 'ป่วย',    icon: '🤒', tone: 'amber'   },
-      { key: 'personal', label: 'กิจ',     icon: '☕', tone: 'sky'     },
-      { key: 'vacation', label: 'พักร้อน', icon: '🏖️', tone: 'emerald' },
+      { key: 'sick',     label: 'ลาป่วย'  },
+      { key: 'personal', label: 'ลากิจ'   },
+      { key: 'vacation', label: 'พักร้อน' },
     ];
-    const TONE = {
-      amber:   { bg: 'bg-amber-50',   num: 'text-amber-700'   },
-      sky:     { bg: 'bg-sky-50',     num: 'text-sky-700'     },
-      emerald: { bg: 'bg-emerald-50', num: 'text-emerald-700' },
-    };
     display.innerHTML = types.map(t => {
       const q = quota[t.key];
-      const c = TONE[t.tone];
-      const numColor = q.remain === 0 ? 'text-red-600' : c.num;
+      const numColor = q.remain === 0 ? 'text-red-600' :
+                        q.remain <= 2 ? 'text-amber-600' :
+                                        'text-slate-900';
       return `
-        <div class="${c.bg} rounded-xl p-3 text-center">
-          <div class="text-2xl leading-none mb-1">${t.icon}</div>
-          <p class="text-xs text-slate-500">${t.label}</p>
-          <p class="text-2xl font-bold ${numColor} leading-tight">${q.remain}</p>
-          <p class="text-xs text-slate-400">/ ${q.quota}</p>
+        <div class="text-center px-2">
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">${t.label}</p>
+          <p class="text-3xl font-bold ${numColor} mt-1.5 leading-none">${q.remain}</p>
+          <p class="text-[11px] text-slate-400 mt-1">จาก ${q.quota}</p>
         </div>`;
     }).join('');
   } catch (err) {
-    display.innerHTML = `<div class="col-span-3 bg-red-50 rounded-xl p-4 text-center text-sm text-red-600">โหลดสิทธิ์ไม่ได้</div>`;
+    display.innerHTML = `<div class="col-span-3 text-center text-sm text-red-600 py-3">โหลดสิทธิ์ไม่ได้</div>`;
   }
 }
 
@@ -187,11 +163,11 @@ async function loadQuota() {
 document.querySelectorAll('.leave-type-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.leave-type-btn').forEach(b => {
-      b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-md', 'shadow-indigo-500/30');
-      b.classList.add('bg-white', 'border-slate-200');
+      b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-sm');
+      b.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
     });
-    btn.classList.remove('bg-white', 'border-slate-200');
-    btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-md', 'shadow-indigo-500/30');
+    btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+    btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-sm');
     document.getElementById('leave_type').value = btn.dataset.type;
   });
 });
@@ -204,7 +180,7 @@ function updateDayCount() {
   if (!s || !e) { out.textContent = ''; return; }
   const days = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
   if (days < 1) {
-    out.textContent = '⚠ วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม';
+    out.textContent = 'วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม';
     out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em]';
   } else {
     out.textContent = `รวม ${days} วัน`;
@@ -240,7 +216,7 @@ document.getElementById('leave-form').addEventListener('submit', async (e) => {
 
   try {
     const result = await Api.apiSubmitLeave(data, userIdToken);
-    setStatus(`✓ ส่งใบลาสำเร็จ ${result.count} วัน`, 'success');
+    setStatus(`ส่งใบลาสำเร็จ ${result.count} วัน`, 'success');
     btn.textContent = 'ส่งแล้ว';
     setTimeout(() => Liff.liffClose(), 1500);
   } catch (err) {
