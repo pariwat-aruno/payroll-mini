@@ -140,6 +140,10 @@ async function apiSubmitConditionalEvidence(idToken, payload) {
   return apiPost('submitConditionalEvidence', payload, idToken);
 }
 
+async function apiUploadEvidence(idToken, payload) {
+  return apiPost('uploadEvidence', payload, idToken);
+}
+
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
   window.PayrollApi = {
@@ -161,6 +165,7 @@ if (typeof window !== 'undefined') {
     apiGetLeaveForRespond,
     apiRespondInfoRequest,
     apiSubmitConditionalEvidence,
+    apiUploadEvidence,
     getBackendUrl,
   };
 }

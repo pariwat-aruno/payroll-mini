@@ -158,13 +158,25 @@
         <option value="other">อื่นๆ</option>
       </select>
     </div>
-    <div id="evidence-link-wrap">
-      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
-        ลิงก์หลักฐาน <span class="text-slate-400 normal-case tracking-normal">(Google Drive / Photos)</span>
+    <div id="evidence-link-wrap" class="space-y-2">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">
+        แนบหลักฐาน
       </label>
-      <input type="url" name="evidence_url" id="evidence_url"
-             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition disabled:bg-slate-100 disabled:text-slate-400"
-             placeholder="https://...">
+      <div class="grid grid-cols-1 gap-2">
+        <button type="button" id="evidence-upload-btn"
+                class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-lg text-sm font-medium border border-slate-300 transition disabled:opacity-50">
+          📷 ถ่ายภาพ / เลือกรูป
+        </button>
+        <input type="file" id="evidence-file" accept="image/*" capture="environment" class="hidden">
+        <img id="evidence-preview" class="hidden w-full max-h-48 object-contain rounded-lg border border-slate-200" alt="">
+        <p id="evidence-upload-status" class="text-xs text-slate-500 mt-1"></p>
+      </div>
+      <details class="text-xs text-slate-500">
+        <summary class="cursor-pointer">หรือวาง URL เอง</summary>
+        <input type="url" name="evidence_url" id="evidence_url"
+               class="mt-2 w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition disabled:bg-slate-100 disabled:text-slate-400"
+               placeholder="https://...">
+      </details>
     </div>
     <label id="evidence-pending-wrap" class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
       <input type="checkbox" name="evidence_pending" id="evidence_pending"
@@ -205,6 +217,7 @@
 
 <script src="liff-bridge.js"></script>
 <script src="api.js"></script>
+<script src="photo-upload.js"></script>
 <script>
 const Liff = window.LiffBridge;
 const Api  = window.PayrollApi;
@@ -432,6 +445,21 @@ function updateEvidenceUI() {
 document.getElementById('evidence_type').addEventListener('change', updateEvidenceUI);
 document.getElementById('evidence_pending').addEventListener('change', updateEvidenceUI);
 updateEvidenceUI();
+
+// === Photo upload → fills evidence_url ===
+window.PhotoUpload.attachUploader({
+  buttonEl:    document.getElementById('evidence-upload-btn'),
+  fileInputEl: document.getElementById('evidence-file'),
+  previewEl:   document.getElementById('evidence-preview'),
+  statusEl:    document.getElementById('evidence-upload-status'),
+  getIdToken:  () => userIdToken,
+  onUploaded:  (result) => {
+    document.getElementById('evidence_url').value = result.url;
+    // Once a photo is uploaded, the user clearly isn't sending later
+    document.getElementById('evidence_pending').checked = false;
+    updateEvidenceUI();
+  },
+});
 
 // === Submit ===
 document.getElementById('leave-form').addEventListener('submit', async (e) => {

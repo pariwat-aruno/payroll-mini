@@ -86,11 +86,21 @@
         <option value="other">อื่นๆ</option>
       </select>
     </div>
-    <div id="info-url-wrap" class="hidden">
-      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ลิงก์หลักฐาน</label>
-      <input type="url" id="info-url"
-             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
-             placeholder="https://...">
+    <div id="info-url-wrap" class="hidden space-y-2">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">หลักฐาน</label>
+      <button type="button" id="info-upload-btn"
+              class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-lg text-sm font-medium border border-slate-300 transition disabled:opacity-50">
+        📷 ถ่ายภาพ / เลือกรูป
+      </button>
+      <input type="file" id="info-file" accept="image/*" capture="environment" class="hidden">
+      <img id="info-preview" class="hidden w-full max-h-48 object-contain rounded-lg border border-slate-200" alt="">
+      <p id="info-upload-status" class="text-xs text-slate-500 mt-1"></p>
+      <details class="text-xs text-slate-500">
+        <summary class="cursor-pointer">หรือวาง URL เอง</summary>
+        <input type="url" id="info-url"
+               class="mt-2 w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+               placeholder="https://...">
+      </details>
     </div>
   </section>
 </form>
@@ -115,12 +125,21 @@
         <option value="other">อื่นๆ</option>
       </select>
     </div>
-    <div>
-      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ลิงก์หลักฐาน <span class="text-red-500 normal-case tracking-normal">*</span></label>
-      <input type="url" id="ev-url" required
-             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
-             placeholder="https://...">
-      <p class="text-xs text-slate-500 mt-2">วาง URL จาก Google Drive / Photos</p>
+    <div class="space-y-2">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">หลักฐาน <span class="text-red-500 normal-case tracking-normal">*</span></label>
+      <button type="button" id="ev-upload-btn"
+              class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-lg text-sm font-medium border border-slate-300 transition disabled:opacity-50">
+        📷 ถ่ายภาพ / เลือกรูป
+      </button>
+      <input type="file" id="ev-file" accept="image/*" capture="environment" class="hidden">
+      <img id="ev-preview" class="hidden w-full max-h-48 object-contain rounded-lg border border-slate-200" alt="">
+      <p id="ev-upload-status" class="text-xs text-slate-500 mt-1"></p>
+      <details class="text-xs text-slate-500">
+        <summary class="cursor-pointer">หรือวาง URL เอง</summary>
+        <input type="url" id="ev-url"
+               class="mt-2 w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+               placeholder="https://...">
+      </details>
     </div>
   </section>
 </form>
@@ -145,6 +164,7 @@
 
 <script src="liff-bridge.js"></script>
 <script src="api.js"></script>
+<script src="photo-upload.js"></script>
 <script>
 const Liff = window.LiffBridge;
 const Api  = window.PayrollApi;
@@ -202,6 +222,14 @@ function openInfoMode(leave) {
   $('info-evidence-type').addEventListener('change', () => {
     $('info-url-wrap').classList.toggle('hidden', $('info-evidence-type').value === 'none');
   });
+  window.PhotoUpload.attachUploader({
+    buttonEl:    $('info-upload-btn'),
+    fileInputEl: $('info-file'),
+    previewEl:   $('info-preview'),
+    statusEl:    $('info-upload-status'),
+    getIdToken:  () => userIdToken,
+    onUploaded:  (result) => { $('info-url').value = result.url; },
+  });
   $('submit-btn').addEventListener('click', submitInfo);
 }
 
@@ -216,10 +244,18 @@ function openEvidenceMode(leave) {
     $('done-state').textContent = `ส่งหลักฐานแล้วเมื่อ ${leave.conditional_evidence_received_at}`;
     return;
   }
-  $('page-subtitle').textContent = 'อัปโหลดลิงก์หลักฐาน';
+  $('page-subtitle').textContent = 'อัปโหลดหลักฐาน';
   $('evidence-form').classList.remove('hidden');
   $('cond-deadline').textContent = leave.conditional_evidence_deadline || '-';
   $('submit-wrap').classList.remove('hidden');
+  window.PhotoUpload.attachUploader({
+    buttonEl:    $('ev-upload-btn'),
+    fileInputEl: $('ev-file'),
+    previewEl:   $('ev-preview'),
+    statusEl:    $('ev-upload-status'),
+    getIdToken:  () => userIdToken,
+    onUploaded:  (result) => { $('ev-url').value = result.url; },
+  });
   $('submit-btn').addEventListener('click', submitEvidence);
 }
 

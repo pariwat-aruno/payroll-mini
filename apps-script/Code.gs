@@ -112,6 +112,7 @@ function _getHandler(action) {
     respondInfoRequest: handleRespondInfoRequest,
     submitConditionalEvidence: handleSubmitConditionalEvidence,
     getLeaveForRespond: handleGetLeaveForRespond,
+    uploadEvidence: handleUploadEvidence,
 
     // Owner-only — handler enforces role check internally
     runReconcile: handleRunReconcile,
@@ -179,6 +180,10 @@ function handleSubmitConditionalEvidence(payload, ctx) {
 
 function handleGetLeaveForRespond(payload, ctx) {
   return getLeaveForRespond(payload, ctx);
+}
+
+function handleUploadEvidence(payload, ctx) {
+  return uploadEvidence(payload, ctx);
 }
 
 function handleRunReconcile(payload, ctx) {
