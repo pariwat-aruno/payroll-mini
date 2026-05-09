@@ -4,48 +4,24 @@
 <meta charset="UTF-8">
 <title>เพิ่มพนักงานใหม่ — HumanAI Payroll</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<script>
-  // DIAGNOSTIC — captures errors before anything else runs.
-  window.__diagSteps = [];
-  function diag(step) {
-    window.__diagSteps.push(step + ' @ ' + (performance.now()|0) + 'ms');
-    var d = document.getElementById('diag-banner');
-    if (d) d.textContent = '[diag] ' + window.__diagSteps.join(' → ');
-  }
-  window.addEventListener('error', function(e) {
-    diag('ERROR: ' + (e.message || 'unknown') + ' (' + (e.filename||'').split('/').pop() + ':' + e.lineno + ')');
-    var d = document.getElementById('diag-banner');
-    if (d) { d.style.background = '#fee'; d.style.color = '#900'; }
-  });
-  window.addEventListener('unhandledrejection', function(e) {
-    diag('REJECTED: ' + (e.reason && e.reason.message || e.reason || 'unknown'));
-  });
-  diag('head-script');
-</script>
-<script src="https://cdn.tailwindcss.com" onload="diag('tailwind-loaded')" onerror="diag('tailwind-FAILED')"></script>
-<script>
-  tailwind.config = {
-    safelist: [
-      { pattern: /(bg|text|ring|border)-(emerald|amber|red|sky|cyan|slate)-(50|100|200|300|400|500|600|700|800|900)/ },
-    ],
-  };
-</script>
-<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" onload="diag('liff-sdk-loaded')" onerror="diag('liff-sdk-FAILED')"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="logo.png">
 <style>
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
-  .ff-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-  input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; max-width: 100%; box-sizing: border-box; }
+  input[type="date"], input[type="number"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; min-height: 44px; box-sizing: border-box; font-size: 16px;
+  }
+  input, select { font-size: 16px; min-height: 44px; }
 </style>
 </head>
-<body class="bg-slate-100 text-slate-900 min-h-screen" style="background:#f1f5f9;color:#0f172a;font-family:system-ui,sans-serif;margin:0;min-height:100vh;">
-<div id="diag-banner" style="background:#fef3c7;color:#78350f;padding:12px;font-size:13px;font-family:monospace;word-break:break-all;border-bottom:1px solid #fbbf24;">[diag] booting…</div>
-<script>diag('body-start')</script>
-<div class="max-w-lg mx-auto pb-10" style="max-width:512px;margin:0 auto;padding-bottom:40px;">
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
 
 <div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
   Local dev mode — using mock LIFF
@@ -74,9 +50,8 @@
 
 </div>
 
-<script>diag('before-bridge-load')</script>
-<script src="liff-bridge.js" onload="diag('bridge-loaded')" onerror="diag('bridge-FAILED')"></script>
-<script src="api.js" onload="diag('api-loaded')" onerror="diag('api-FAILED')"></script>
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
 <script src="nav.js"></script>
 <script>
 const Liff = window.LiffBridge;
@@ -88,33 +63,32 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
 let userIdToken = null;
 let employees = [];
 
-(async function init() {
-  diag('init-start');
+async function init() {
   try {
-    diag('before-liffInit');
     await Liff.liffInit(LIFF_ID);
-    diag('after-liffInit (mock=' + Liff.liffIsMock() + ')');
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     userIdToken = Liff.liffGetIDToken();
-    diag('got-token');
-    renderForm();  // render immediately — no pre-fetch
-    diag('renderForm-done');
+    renderForm();
     // Background: fetch employee list to upgrade approver fields to dropdowns
     Api.apiListEmployees(userIdToken).then(list => {
-      employees = list;
+      employees = list || [];
       upgradeApproverDropdowns();
+      // Re-suggest emp_code now that we know the existing ones
+      const empCodeInput = document.getElementById('emp_code');
+      if (empCodeInput && empCodeInput.value === 'EMP006') {
+        empCodeInput.value = suggestEmpCode();
+      }
     }).catch(err => {
-      if (err.message === 'forbidden_owner_only') forbidden();
-      // otherwise leave as text inputs; submit will validate
+      if (err && err.message === 'forbidden_owner_only') forbidden();
     });
   } catch (err) {
-    showError(err.message);
+    showError(err && err.message || String(err));
   }
-})();
+}
 
 function approverOptions(includeOwner) {
   const opts = [];
-  if (includeOwner) opts.push(`<option value="OWNER">OWNER · เจ้าของ</option>`);
+  if (includeOwner) opts.push('<option value="OWNER">OWNER · เจ้าของ</option>');
   opts.push(...employees.map(e =>
     `<option value="${e.emp_code}">${e.emp_code} · ${e.first_name} ${e.last_name} (${e.department})</option>`));
   return opts.join('');
@@ -123,7 +97,7 @@ function approverOptions(includeOwner) {
 function upgradeApproverDropdowns() {
   ['l1_approver', 'l2_approver', 'l3_approver'].forEach(name => {
     const input = document.querySelector(`[name="${name}"]`);
-    if (!input || input.tagName === 'SELECT') return;  // already upgraded
+    if (!input || input.tagName === 'SELECT') return;
     const isOptional = name !== 'l1_approver';
     const select = document.createElement('select');
     select.name = name;
@@ -139,8 +113,6 @@ function upgradeApproverDropdowns() {
 }
 
 function suggestEmpCode() {
-  // Without prefetched employees, just suggest EMP006 as a reasonable default;
-  // the owner can override and the server enforces uniqueness.
   if (!employees.length) return 'EMP006';
   const nums = employees
     .map(e => (String(e.emp_code).match(/^EMP(\d+)$/) || [])[1])
@@ -152,21 +124,22 @@ function suggestEmpCode() {
 
 function renderForm() {
   const today = new Date().toISOString().substring(0, 10);
+  const inp = 'w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition';
+  const lbl = 'block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5';
+
   document.getElementById('main').innerHTML = `
     <form id="onboard-form" class="space-y-3">
 
-      <!-- Basic info -->
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
         <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ข้อมูลพื้นฐาน</p>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">รหัสพนักงาน *</label>
-            <input name="emp_code" id="emp_code" required value="${suggestEmpCode()}"
-                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase">
+            <label class="${lbl}">รหัสพนักงาน *</label>
+            <input name="emp_code" id="emp_code" required value="${suggestEmpCode()}" class="${inp} uppercase">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">สถานะ</label>
-            <select name="status" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">สถานะ</label>
+            <select name="status" class="${inp}">
               <option value="active">active</option>
               <option value="probation">probation</option>
             </select>
@@ -174,128 +147,116 @@ function renderForm() {
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชื่อ *</label>
-            <input name="first_name" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">ชื่อ *</label>
+            <input name="first_name" required class="${inp}">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">นามสกุล *</label>
-            <input name="last_name" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">นามสกุล *</label>
+            <input name="last_name" required class="${inp}">
           </div>
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชื่อเล่น</label>
-          <input name="nickname" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          <label class="${lbl}">ชื่อเล่น</label>
+          <input name="nickname" class="${inp}">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">เลขบัตรประชาชน *</label>
-          <input name="national_id" required pattern="\\d{13}" maxlength="13" inputmode="numeric"
-                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+          <label class="${lbl}">เลขบัตรประชาชน *</label>
+          <input name="national_id" required pattern="\\d{13}" maxlength="13" inputmode="numeric" class="${inp}">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">อีเมล *</label>
-          <input name="email" type="email" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          <label class="${lbl}">อีเมล *</label>
+          <input name="email" type="email" required class="${inp}">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">แผนก *</label>
-            <input name="department" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">แผนก *</label>
+            <input name="department" required class="${inp}">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ตำแหน่ง *</label>
-            <input name="position" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">ตำแหน่ง *</label>
+            <input name="position" required class="${inp}">
           </div>
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">วันเริ่มงาน *</label>
-          <input name="start_date" type="date" required value="${today}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          <label class="${lbl}">วันเริ่มงาน *</label>
+          <input name="start_date" type="date" required value="${today}" class="${inp}">
         </div>
       </section>
 
-      <!-- Approval chain -->
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
         <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">สายอนุมัติ</p>
         <p class="text-xs text-slate-400">กรอก emp_code (เช่น EMP001) หรือ OWNER · ระบบจะอัพเป็น dropdown ภายใน 1-2 วิ</p>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L1 หัวหน้าทันที *</label>
-          <input name="l1_approver" required value="OWNER" placeholder="OWNER หรือ EMP001"
-                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
+          <label class="${lbl}">L1 หัวหน้าทันที *</label>
+          <input name="l1_approver" required value="OWNER" placeholder="OWNER หรือ EMP001" class="${inp} uppercase">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L2 (สำหรับลา 3-5 วัน)</label>
-          <input name="l2_approver" placeholder="ปล่อยว่างถ้าไม่ใช้"
-                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
+          <label class="${lbl}">L2 (สำหรับลา 3-5 วัน)</label>
+          <input name="l2_approver" placeholder="ปล่อยว่างถ้าไม่ใช้" class="${inp} uppercase">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L3 (สำหรับลา 6+ วัน)</label>
-          <input name="l3_approver" placeholder="ปล่อยว่างถ้าไม่ใช้"
-                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
+          <label class="${lbl}">L3 (สำหรับลา 6+ วัน)</label>
+          <input name="l3_approver" placeholder="ปล่อยว่างถ้าไม่ใช้" class="${inp} uppercase">
         </div>
       </section>
 
-      <!-- Schedule + Quota -->
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
         <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ตารางทำงาน + สิทธิ์ลา</p>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">วันทำงาน (Mon-Sun)</label>
-            <input name="work_days_bitmap" value="1111100" maxlength="7" pattern="[01]{7}"
-                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+            <label class="${lbl}">วันทำงาน (Mon-Sun)</label>
+            <input name="work_days_bitmap" value="1111100" maxlength="7" pattern="[01]{7}" class="${inp}">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชั่วโมง/วัน</label>
-            <input name="daily_hours" type="number" value="8" min="1" max="12" step="1"
-                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">ชั่วโมง/วัน</label>
+            <input name="daily_hours" type="number" value="8" min="1" max="12" step="1" class="${inp}">
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ลาป่วย</label>
-            <input name="sick_quota" type="number" value="30" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">ลาป่วย</label>
+            <input name="sick_quota" type="number" value="30" min="0" class="${inp}">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ลากิจ</label>
-            <input name="personal_quota" type="number" value="3" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">ลากิจ</label>
+            <input name="personal_quota" type="number" value="3" min="0" class="${inp}">
           </div>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">พักร้อน</label>
-            <input name="vacation_quota" type="number" value="8" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <label class="${lbl}">พักร้อน</label>
+            <input name="vacation_quota" type="number" value="8" min="0" class="${inp}">
           </div>
         </div>
       </section>
 
-      <!-- Salary -->
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
         <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">เงินเดือน <span class="text-slate-400 normal-case tracking-normal">(secret sheet)</span></p>
         <div>
-          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">Base Salary (บาท/เดือน) *</label>
-          <input name="base_salary" id="base_salary" type="number" required min="0" step="100"
-                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+          <label class="${lbl}">Base Salary (บาท/เดือน) *</label>
+          <input name="base_salary" id="base_salary" type="number" required min="0" step="100" class="${inp}">
         </div>
         <div id="rates-preview" class="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 hidden">
           <div class="grid grid-cols-2 gap-y-1">
-            <span>Daily rate</span><span class="text-right font-mono text-slate-900" id="rate-daily">—</span>
-            <span>Hourly rate</span><span class="text-right font-mono text-slate-900" id="rate-hourly">—</span>
-            <span>OT 1.5×</span><span class="text-right font-mono text-slate-900" id="rate-ot1">—</span>
-            <span>OT 1× (rest)</span><span class="text-right font-mono text-slate-900" id="rate-ot2">—</span>
-            <span>OT 3×</span><span class="text-right font-mono text-slate-900" id="rate-ot3">—</span>
+            <span>Daily rate</span><span class="text-right text-slate-900" id="rate-daily">—</span>
+            <span>Hourly rate</span><span class="text-right text-slate-900" id="rate-hourly">—</span>
+            <span>OT 1.5×</span><span class="text-right text-slate-900" id="rate-ot1">—</span>
+            <span>OT 1× (rest)</span><span class="text-right text-slate-900" id="rate-ot2">—</span>
+            <span>OT 3×</span><span class="text-right text-slate-900" id="rate-ot3">—</span>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-3 items-center">
           <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="sso_eligible" checked class="w-4 h-4 rounded border-slate-300 text-cyan-600">
             <span>ประกันสังคม</span>
           </label>
           <div>
-            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">PF rate</label>
-            <input name="pf_rate" type="number" value="0.05" min="0" max="0.15" step="0.01"
-                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+            <label class="${lbl}">PF rate</label>
+            <input name="pf_rate" type="number" value="0.05" min="0" max="0.15" step="0.01" class="${inp}">
           </div>
         </div>
       </section>
 
       <div class="pt-1 px-1">
-        <button type="submit" id="submit-btn"
-                class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+        <button type="submit" id="submit-btn" class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
           สร้าง + ออก Pairing Code
         </button>
       </div>
@@ -304,7 +265,6 @@ function renderForm() {
     </form>
   `;
 
-  // Live rate preview
   const baseInput = document.getElementById('base_salary');
   const dailyHoursInput = document.querySelector('input[name="daily_hours"]');
   const updateRates = () => {
@@ -325,7 +285,6 @@ function renderForm() {
   baseInput.addEventListener('input', updateRates);
   dailyHoursInput.addEventListener('input', updateRates);
 
-  // Submit
   document.getElementById('onboard-form').addEventListener('submit', onSubmit);
 }
 
@@ -350,7 +309,7 @@ async function onSubmit(e) {
     const result = await Api.apiOnboardEmployee(data, userIdToken);
     showSuccess(result);
   } catch (err) {
-    status.textContent = 'ผิดพลาด: ' + err.message;
+    status.textContent = 'ผิดพลาด: ' + (err && err.message || err);
     status.className = 'text-sm text-center min-h-[1.5em] font-medium text-red-600';
     btn.disabled = false; btn.textContent = 'สร้าง + ออก Pairing Code';
   }
@@ -366,7 +325,7 @@ function showSuccess(result) {
 
     <section class="bg-white rounded-xl ring-1 ring-slate-200 p-6 text-center">
       <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">Pairing Code · 24 ชม.</p>
-      <p class="font-mono text-5xl font-bold tracking-[0.2em] text-cyan-700 mt-3">${result.pairing_code}</p>
+      <p class="text-5xl font-bold tracking-[0.2em] text-cyan-700 mt-3">${result.pairing_code}</p>
       <p class="text-xs text-slate-500 mt-4 leading-relaxed">
         ส่งรหัส 6 หลักนี้ + รหัสพนักงาน <span class="font-semibold text-slate-900">${result.emp_code}</span><br>
         ให้พนักงานเปิด LIFF → "ผูกบัญชี LINE" → ใส่ทั้งสองรหัส
@@ -375,7 +334,7 @@ function showSuccess(result) {
 
     <div class="grid grid-cols-2 gap-2">
       <a href="onboard.html" class="block text-center py-3 rounded-lg border border-slate-300 bg-white text-sm font-medium active:scale-[0.98] transition">เพิ่มอีกคน</a>
-      <a href="/" class="block text-center py-3 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] transition">กลับเมนู</a>
+      <a href="index.html" class="block text-center py-3 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] transition">กลับเมนู</a>
     </div>
   `;
 }
@@ -395,6 +354,8 @@ function showError(msg) {
       <p class="text-sm text-slate-500 mt-1 break-all">${msg}</p>
     </section>`;
 }
+
+init();
 </script>
 </body>
 </html>
