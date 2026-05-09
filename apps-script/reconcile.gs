@@ -410,6 +410,63 @@ function runReconcile(period) {
   };
 }
 
+/**
+ * Run reconcile then push a Flex summary to the given owner.
+ * Defaults to the previous month if no period given (current month isn't closed yet).
+ */
+function runReconcileWithSummary(period, ownerUserId) {
+  if (!period) {
+    const today = new Date();
+    const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    period = Utilities.formatDate(prev, 'GMT+7', 'yyyy-MM');
+  }
+  if (!/^\d{4}-\d{2}$/.test(period)) throw new Error('invalid_period');
+
+  const result = runReconcile(period);
+
+  // Aggregate open escalations for the period
+  const escs = readTab_(getPublicSheet_(), 'Escalation_Queue')
+    .filter(e => formatDate_(e.date).startsWith(period))
+    .filter(e => String(e.status || 'open') === 'open');
+
+  const byType = {};
+  const byEmp = {};
+  escs.forEach(e => {
+    byType[e.type] = (byType[e.type] || 0) + 1;
+    byEmp[e.emp_code] = (byEmp[e.emp_code] || 0) + 1;
+  });
+
+  const empMap = {};
+  readTab_(getPublicSheet_(), 'Employees').forEach(e => empMap[e.emp_code] = e);
+  const topEmployees = Object.entries(byEmp)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([code, count]) => {
+      const e = empMap[code];
+      return {
+        emp_code: code,
+        name: e ? `${e.first_name} ${e.last_name}`.trim() : code,
+        count,
+      };
+    });
+
+  const summary = {
+    period,
+    employees: result.employees,
+    reconciledRows: result.reconciled_rows,
+    openEscalations: escs.length,
+    byType,
+    topEmployees,
+  };
+
+  if (ownerUserId) {
+    try { sendReconcileSummaryFlex(ownerUserId, summary); }
+    catch (e) { console.error('summary flex failed: ' + e); }
+  }
+
+  return summary;
+}
+
 /* ============================================================
  * Per-day reconciliation logic
  * ============================================================ */

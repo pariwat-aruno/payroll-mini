@@ -155,7 +155,7 @@ function handleGetMyHistory(payload, ctx) {
 
 function handleRunReconcile(payload, ctx) {
   _requireOwner(ctx);
-  return runReconcile(payload.period);
+  return runReconcileWithSummary(payload.period, ctx.userId);
 }
 
 function handleListEscalations(payload, ctx) {
@@ -212,7 +212,7 @@ function _handleLineWebhook(body) {
       if (event.type === 'postback') {
         _handlePostback(event);
       } else if (event.type === 'message' && event.message && event.message.type === 'text') {
-        // Optional: handle text commands like "/help" — left as TODO
+        _handleTextMessage(event);
       }
       // Other event types ignored for now
     });
@@ -226,6 +226,44 @@ function _handleLineWebhook(body) {
     });
   }
   return _jsonResponse({ ok: true });
+}
+
+/**
+ * Handle text messages sent to the OA. Owner-only commands for now.
+ * Examples:
+ *   /reconcile           → run for previous month
+ *   /reconcile 2026-05   → run for that period
+ *   /help                → list commands
+ */
+function _handleTextMessage(event) {
+  const userId = event.source && event.source.userId;
+  const text = ((event.message && event.message.text) || '').trim();
+  if (!userId || !text) return;
+
+  const empCode = lookupEmpCodeByUserId(userId);
+  // Only owner has chat commands; everyone else is silent.
+  if (empCode !== 'OWNER') return;
+
+  // /reconcile [YYYY-MM]
+  let m = text.match(/^\/?reconcile(?:\s+(\d{4}-\d{2}))?\s*$/i);
+  if (m) {
+    try {
+      runReconcileWithSummary(m[1] || null, userId);
+    } catch (e) {
+      pushLineMessage(userId, 'Reconcile ผิดพลาด: ' + e.message);
+    }
+    return;
+  }
+
+  if (/^\/?help\s*$/i.test(text)) {
+    pushLineMessage(userId,
+      'คำสั่ง:\n' +
+      '/reconcile — รัน reconcile เดือนก่อน\n' +
+      '/reconcile YYYY-MM — รันงวดที่ระบุ\n' +
+      '/help — แสดงคำสั่งนี้'
+    );
+    return;
+  }
 }
 
 function _handlePostback(event) {

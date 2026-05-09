@@ -42,10 +42,28 @@
   </div>
 </header>
 
-<main class="px-4 -mt-4 space-y-3" id="main">
-  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
-    <p class="text-sm text-slate-500">กำลังโหลดรายการ...</p>
+<main class="px-4 -mt-4 space-y-3">
+
+  <!-- Reconcile control -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">งวดเงินเดือน</p>
+    <div class="flex items-center gap-2">
+      <input type="month" id="reconcile-period"
+             class="flex-1 min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+      <button id="reconcile-btn"
+              class="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] disabled:bg-slate-400 transition whitespace-nowrap">
+        Reconcile
+      </button>
+    </div>
+    <p id="reconcile-status" class="text-xs text-slate-500 mt-2 min-h-[1em]"></p>
   </section>
+
+  <!-- Inbox -->
+  <div id="main" class="space-y-3">
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-sm text-slate-500">กำลังโหลดรายการ...</p>
+    </section>
+  </div>
 </main>
 </div>
 
@@ -79,9 +97,39 @@ async function init() {
     userIdToken = Liff.liffGetIDToken();
     document.getElementById('user-greeting').textContent = profile.displayName;
 
+    // Default reconcile period = previous month
+    const today = new Date();
+    const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    document.getElementById('reconcile-period').value =
+      `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+    document.getElementById('reconcile-btn').addEventListener('click', onReconcile);
+
     await loadInbox();
   } catch (err) {
     showError(err.message);
+  }
+}
+
+async function onReconcile() {
+  const btn = document.getElementById('reconcile-btn');
+  const status = document.getElementById('reconcile-status');
+  const period = document.getElementById('reconcile-period').value;
+  if (!period) { status.textContent = 'กรุณาเลือกงวด'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังรัน...';
+  status.textContent = '';
+
+  try {
+    const result = await Api.apiPost('runReconcile', { period }, userIdToken);
+    status.textContent = `เสร็จ — ${result.reconciledRows} แถว · ${result.openEscalations} escalation เปิด · Flex สรุปส่งเข้า LINE แล้ว`;
+    status.className = 'text-xs text-emerald-700 mt-2 min-h-[1em] font-medium';
+  } catch (err) {
+    status.textContent = 'ผิดพลาด: ' + err.message;
+    status.className = 'text-xs text-red-600 mt-2 min-h-[1em] font-medium';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reconcile';
   }
 }
 

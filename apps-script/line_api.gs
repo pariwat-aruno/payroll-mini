@@ -307,6 +307,51 @@ function _flexRow(label, value) {
   };
 }
 
+/**
+ * Push a reconcile summary as a Flex bubble.
+ */
+function sendReconcileSummaryFlex(ownerUserId, summary) {
+  const TYPE_LABEL = {
+    absent:                   'ขาดงาน',
+    short_work:               'ทำงานไม่ครบ',
+    ot_unrequested:           'OT ไม่ได้ขอ',
+    weekend_work_unrequested: 'ทำงานวันหยุดไม่ได้ขอ',
+    leave_pending:            'ลายังไม่อนุมัติ',
+  };
+
+  const bodyContents = [
+    { type: 'text', text: 'สรุป Reconcile', weight: 'bold', size: 'lg' },
+    { type: 'text', text: 'งวด ' + summary.period, size: 'xs', color: '#888888', margin: 'sm' },
+    { type: 'separator', margin: 'md' },
+    _flexRow('พนักงาน',         (summary.employees || 0) + ' คน'),
+    _flexRow('แถวที่ reconcile', (summary.reconciledRows || 0) + ' แถว'),
+    _flexRow('Escalation เปิด', (summary.openEscalations || 0) + ' รายการ'),
+  ];
+
+  const byTypeKeys = Object.keys(summary.byType || {});
+  if (byTypeKeys.length) {
+    bodyContents.push({ type: 'separator', margin: 'md' });
+    bodyContents.push({ type: 'text', text: 'ตามประเภท', size: 'xs', color: '#888888', margin: 'md', weight: 'bold' });
+    byTypeKeys.forEach(t => {
+      bodyContents.push(_flexRow(TYPE_LABEL[t] || t, summary.byType[t] + ' ครั้ง'));
+    });
+  }
+
+  if (summary.topEmployees && summary.topEmployees.length) {
+    bodyContents.push({ type: 'separator', margin: 'md' });
+    bodyContents.push({ type: 'text', text: 'พนักงาน Top 3 (escalation มากสุด)', size: 'xs', color: '#888888', margin: 'md', weight: 'bold', wrap: true });
+    summary.topEmployees.forEach(e => {
+      bodyContents.push(_flexRow(e.name, e.count + ' ครั้ง'));
+    });
+  }
+
+  const flex = {
+    type: 'bubble',
+    body: { type: 'box', layout: 'vertical', contents: bodyContents },
+  };
+  pushFlex(ownerUserId, 'สรุป Reconcile ' + summary.period, flex);
+}
+
 function _flexStatRow(target, label, s) {
   if (!s) return;
   target.push({
