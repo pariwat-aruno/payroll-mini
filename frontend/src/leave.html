@@ -6,8 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="https://cdn.tailwindcss.com"></script>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
 <style>
-  body { font-family: 'Sarabun', 'Inter', 'Noto Sans Thai', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
   input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 </style>
 </head>
@@ -20,13 +25,22 @@
 </div>
 
 <!-- Header -->
-<header class="bg-slate-900 text-white px-6 pt-8 pb-10">
-  <p class="text-[11px] text-slate-400 uppercase tracking-[0.18em] font-semibold">
-    <span>สวัสดี ·</span>
-    <span id="user-greeting">กำลังโหลด</span>
-  </p>
-  <h1 class="mt-4 text-3xl font-bold tracking-tight">ส่งใบลา</h1>
-  <p class="text-sm text-slate-300 mt-1.5">กรอกฟอร์มเพื่อขออนุมัติ</p>
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">ส่งใบลา</h1>
+    <p class="text-sm text-white/85 mt-1.5">กรอกฟอร์มเพื่อขออนุมัติ</p>
+  </div>
 </header>
 
 <main class="px-4 -mt-4 space-y-3">
@@ -60,21 +74,21 @@
     <div>
       <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่เริ่มลา</label>
       <input type="date" name="start_date" id="start_date" required
-             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition">
+             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
     </div>
     <div>
       <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่สิ้นสุด</label>
       <input type="date" name="end_date" id="end_date" required
-             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition">
+             class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
     </div>
-    <p id="day-count" class="text-sm font-semibold text-indigo-600 min-h-[1.25em]"></p>
+    <p id="day-count" class="text-sm font-semibold text-cyan-700 min-h-[1.25em]"></p>
   </section>
 
   <!-- Reason -->
   <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
     <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">เหตุผล</label>
     <textarea name="reason" id="reason" rows="3"
-              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 resize-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition"
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 resize-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
               placeholder="ระบุเหตุผลสั้นๆ"></textarea>
   </section>
 
@@ -84,7 +98,7 @@
       แนบหลักฐาน <span class="text-slate-400 normal-case tracking-normal">(ถ้ามี)</span>
     </label>
     <input type="url" name="evidence_url" id="evidence_url"
-           class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 focus:outline-none transition"
+           class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
            placeholder="ลิงก์ Google Drive / Photos">
     <p class="text-xs text-slate-500 mt-2">เช่น ใบรับรองแพทย์ (ลาป่วยเกิน 3 วัน)</p>
   </section>
@@ -92,7 +106,7 @@
   <!-- Submit -->
   <div class="pt-1 px-1">
     <button type="submit" id="submit-btn"
-            class="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase active:scale-[0.99] disabled:bg-slate-400 transition">
+            class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
       ส่งใบลา
     </button>
   </div>
@@ -163,11 +177,11 @@ async function loadQuota() {
 document.querySelectorAll('.leave-type-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.leave-type-btn').forEach(b => {
-      b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-sm');
+      b.classList.remove('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
       b.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
     });
     btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
-    btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600', 'shadow-sm');
+    btn.classList.add('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
     document.getElementById('leave_type').value = btn.dataset.type;
   });
 });
@@ -184,7 +198,7 @@ function updateDayCount() {
     out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em]';
   } else {
     out.textContent = `รวม ${days} วัน`;
-    out.className = 'text-sm font-semibold text-indigo-600 min-h-[1.25em]';
+    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em]';
   }
 }
 document.getElementById('start_date').addEventListener('change', updateDayCount);
