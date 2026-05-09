@@ -73,12 +73,16 @@ let employees = [];
     await Liff.liffInit(LIFF_ID);
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     userIdToken = Liff.liffGetIDToken();
-    // listEmployees is owner-gated server-side — if it succeeds, user is owner.
-    // This collapses what used to be getMe + listEmployees into one round trip.
-    employees = await Api.apiListEmployees(userIdToken);
-    renderForm();
+    renderForm();  // render immediately — no pre-fetch
+    // Background: fetch employee list to upgrade approver fields to dropdowns
+    Api.apiListEmployees(userIdToken).then(list => {
+      employees = list;
+      upgradeApproverDropdowns();
+    }).catch(err => {
+      if (err.message === 'forbidden_owner_only') forbidden();
+      // otherwise leave as text inputs; submit will validate
+    });
   } catch (err) {
-    if (err.message === 'forbidden_owner_only') { forbidden(); return; }
     showError(err.message);
   }
 })();
@@ -91,7 +95,28 @@ function approverOptions(includeOwner) {
   return opts.join('');
 }
 
+function upgradeApproverDropdowns() {
+  ['l1_approver', 'l2_approver', 'l3_approver'].forEach(name => {
+    const input = document.querySelector(`[name="${name}"]`);
+    if (!input || input.tagName === 'SELECT') return;  // already upgraded
+    const isOptional = name !== 'l1_approver';
+    const select = document.createElement('select');
+    select.name = name;
+    select.className = input.className;
+    if (!isOptional) select.required = true;
+    select.innerHTML = (isOptional ? '<option value="">— ไม่ระบุ —</option>' : '') + approverOptions(true);
+    if (input.value) {
+      const opt = select.querySelector(`option[value="${input.value}"]`);
+      if (opt) opt.selected = true;
+    }
+    input.replaceWith(select);
+  });
+}
+
 function suggestEmpCode() {
+  // Without prefetched employees, just suggest EMP006 as a reasonable default;
+  // the owner can override and the server enforces uniqueness.
+  if (!employees.length) return 'EMP006';
   const nums = employees
     .map(e => (String(e.emp_code).match(/^EMP(\d+)$/) || [])[1])
     .filter(Boolean)
@@ -164,25 +189,21 @@ function renderForm() {
       <!-- Approval chain -->
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
         <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">สายอนุมัติ</p>
+        <p class="text-xs text-slate-400">กรอก emp_code (เช่น EMP001) หรือ OWNER · ระบบจะอัพเป็น dropdown ภายใน 1-2 วิ</p>
         <div>
           <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L1 หัวหน้าทันที *</label>
-          <select name="l1_approver" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
-            ${approverOptions(true)}
-          </select>
+          <input name="l1_approver" required value="OWNER" placeholder="OWNER หรือ EMP001"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
         </div>
         <div>
           <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L2 (สำหรับลา 3-5 วัน)</label>
-          <select name="l2_approver" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
-            <option value="">— ไม่ระบุ —</option>
-            ${approverOptions(true)}
-          </select>
+          <input name="l2_approver" placeholder="ปล่อยว่างถ้าไม่ใช้"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
         </div>
         <div>
           <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L3 (สำหรับลา 6+ วัน)</label>
-          <select name="l3_approver" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
-            <option value="">— ไม่ระบุ —</option>
-            ${approverOptions(true)}
-          </select>
+          <input name="l3_approver" placeholder="ปล่อยว่างถ้าไม่ใช้"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
         </div>
       </section>
 
