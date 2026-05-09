@@ -13,6 +13,29 @@
 <style>
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+
+  /* Critical card layout — applied before Tailwind CDN JIT finishes to avoid
+     the "cards-cramped-then-spread" flash. Mirrors the Tailwind classes on
+     .menu-card so visual is identical once Tailwind takes over. */
+  .menu-card {
+    display: block;
+    background: #fff;
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226, 232, 240);
+    text-decoration: none;
+    color: inherit;
+  }
+  .menu-card[hidden] { display: none; }
+  /* Spacing between any two visible menu cards */
+  .menu-card:not([hidden]) ~ .menu-card:not([hidden]) { margin-top: 0.75rem; }
+  /* Pair card has its own amber styling + always reserves a top gap from the
+     header even when it's the only visible card (unpaired case) */
+  #pair-card {
+    background: rgb(255, 251, 235);
+    border: 2px solid rgb(252, 211, 77);
+    margin-top: 0.75rem;
+  }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-900 min-h-screen">
