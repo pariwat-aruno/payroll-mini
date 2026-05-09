@@ -293,9 +293,8 @@ function sendApprovalFlex(approverUserId, req) {
     const typeLabel = req.isEmergency ? `${baseTypeLabel} (ฉุกเฉิน)` : baseTypeLabel;
     bodyContents.push(_flexRow('ประเภท', typeLabel));
 
-    // Duration row — show only for half/hour (full_day is implied by date row)
-    const durationLabel = _formatDurationLabel_(req);
-    if (durationLabel) bodyContents.push(_flexRow('ระยะเวลา', durationLabel));
+    // Duration row — always shown so approver sees full/half/hour at a glance
+    bodyContents.push(_flexRow('ระยะเวลา', _formatDurationLabel_(req)));
 
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
   } else {
@@ -414,7 +413,7 @@ function sendApprovalFlex(approverUserId, req) {
 
 /**
  * Build a human-readable duration label for the Flex body.
- * Returns null for full_day (the date row already conveys it).
+ * Always returns a string so 'ระยะเวลา' is visible for every leave.
  */
 function _formatDurationLabel_(req) {
   const unit = req.durationUnit || 'full_day';
@@ -427,7 +426,9 @@ function _formatDurationLabel_(req) {
     const hoursLabel = hours !== null ? ` (${Math.round(hours * 100) / 100} ชม.)` : '';
     return `${req.hourStart || '?'} – ${req.hourEnd || '?'}${hoursLabel}`;
   }
-  return null;
+  // full_day
+  const days = Number(req.daysEquivalent) || 1;
+  return `เต็มวัน (${days} วัน)`;
 }
 
 function _flexRow(label, value) {
