@@ -14,7 +14,9 @@
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
   input, select, textarea { font-size: 16px; min-height: 44px; }
+  .tab-btn { color:#475569; transition:background 120ms; }
   .tab-btn[aria-selected="true"] { background:#0e7490; color:#fff; }
+  .tab-btn:not([aria-selected="true"]):active { background:#f1f5f9; }
   .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
 </style>
 </head>
@@ -43,12 +45,27 @@
 
 <!-- Tabs -->
 <div class="px-4 -mt-4">
-  <div class="bg-white rounded-xl ring-1 ring-slate-200 p-1.5 grid grid-cols-5 gap-1" role="tablist">
-    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="emp"   aria-selected="true">พนักงาน</button>
-    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="allow" aria-selected="false">เงินเพิ่ม/หัก</button>
-    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="rec"   aria-selected="false">หักประจำ</button>
-    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="hol"   aria-selected="false">วันหยุด</button>
-    <button class="tab-btn py-2 rounded-lg text-xs font-medium" data-tab="quota" aria-selected="false">โควตาลา</button>
+  <div class="bg-white rounded-xl ring-1 ring-slate-200 p-1 grid grid-cols-5 gap-0.5" role="tablist">
+    <button class="tab-btn flex flex-col items-center justify-center py-2 px-0.5 rounded-lg gap-0.5" data-tab="emp"   aria-selected="true">
+      <span class="text-base leading-none">👥</span>
+      <span class="text-[10px] font-medium leading-tight">พนักงาน</span>
+    </button>
+    <button class="tab-btn flex flex-col items-center justify-center py-2 px-0.5 rounded-lg gap-0.5" data-tab="allow" aria-selected="false">
+      <span class="text-base leading-none">💸</span>
+      <span class="text-[10px] font-medium leading-tight">เพิ่ม/หัก</span>
+    </button>
+    <button class="tab-btn flex flex-col items-center justify-center py-2 px-0.5 rounded-lg gap-0.5" data-tab="rec"   aria-selected="false">
+      <span class="text-base leading-none">🧾</span>
+      <span class="text-[10px] font-medium leading-tight">หักประจำ</span>
+    </button>
+    <button class="tab-btn flex flex-col items-center justify-center py-2 px-0.5 rounded-lg gap-0.5" data-tab="hol"   aria-selected="false">
+      <span class="text-base leading-none">📅</span>
+      <span class="text-[10px] font-medium leading-tight">วันหยุด</span>
+    </button>
+    <button class="tab-btn flex flex-col items-center justify-center py-2 px-0.5 rounded-lg gap-0.5" data-tab="quota" aria-selected="false">
+      <span class="text-base leading-none">⏳</span>
+      <span class="text-[10px] font-medium leading-tight">โควตา</span>
+    </button>
   </div>
 </div>
 
