@@ -43,7 +43,9 @@
 </header>
 
 <main class="px-4 -mt-6 space-y-3">
-  <a href="leave.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+
+  <!-- Employee cards (hidden until LINE_User_Map is paired) -->
+  <a href="leave.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">ส่งใบลา</p>
@@ -53,7 +55,7 @@
     </div>
   </a>
 
-  <a href="ot.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <a href="ot.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">ขอ OT</p>
@@ -63,7 +65,7 @@
     </div>
   </a>
 
-  <a href="quota.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <a href="quota.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">สิทธิ์การลา</p>
@@ -73,7 +75,7 @@
     </div>
   </a>
 
-  <a href="slip.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+  <a href="slip.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
         <p class="font-semibold text-slate-900">สลิปเงินเดือน</p>
@@ -152,15 +154,19 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
     // Reveal owner-only cards if applicable
     try {
       const me = await window.PayrollApi.apiGetMe(Liff.liffGetIDToken());
-      if (me && me.is_owner) {
-        document.getElementById('owner-card').removeAttribute('hidden');
-        document.getElementById('onboard-card').removeAttribute('hidden');
-        document.getElementById('help-card').removeAttribute('hidden');
-      } else if (me && !me.emp_code) {
-        // Not paired yet — surface the pairing card
+      if (me && me.emp_code) {
+        // Paired — reveal employee cards
+        document.querySelectorAll('[data-paired-only]').forEach(el => el.removeAttribute('hidden'));
+        if (me.is_owner) {
+          document.getElementById('owner-card').removeAttribute('hidden');
+          document.getElementById('onboard-card').removeAttribute('hidden');
+          document.getElementById('help-card').removeAttribute('hidden');
+        }
+      } else {
+        // Not paired — show only the pair card
         document.getElementById('pair-card').removeAttribute('hidden');
       }
-    } catch (_) { /* not mapped — leave cards hidden */ }
+    } catch (_) { /* keep all cards hidden on error */ }
   } catch (err) {
     document.getElementById('user-greeting').textContent = '—';
   }
