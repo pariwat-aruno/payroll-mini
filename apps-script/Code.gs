@@ -190,17 +190,6 @@ function _requireOwner(ctx) {
  * Flex Message buttons sent by sendApprovalFlex().
  */
 function _handleLineWebhook(body) {
-  // === DEBUG: write to Audit_Log ===
-  try {
-    const userId = body.events && body.events[0] && body.events[0].source && body.events[0].source.userId;
-    logAudit({
-      action: 'WEBHOOK_DEBUG',
-      target_type: 'webhook',
-      target_id: userId || 'no_userid',
-      reason: 'Test webhook event'
-    });
-  } catch (e) {}
-  // ==================================
   try {
     (body.events || []).forEach(event => {
       if (event.type === 'postback') {

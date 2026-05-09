@@ -214,17 +214,39 @@ function handleApprovalAction(approverUserId, postback) {
 
   const groupId = isLeave ? data[firstRow][groupCol] : null;
 
-  // Verify the approver is authorized for this level
+  // Verify the approver is authorized for this level.
+  // expectedApprover may be stored as emp_code; resolve to LINE userId before comparing.
   const expectedApproverCol = headers.indexOf(`level_${lvl}_approver`);
   const expectedApprover = data[firstRow][expectedApproverCol];
-  if (expectedApprover !== approverUserId) {
+  const expectedUserId = String(expectedApprover).startsWith('U')
+    ? expectedApprover
+    : lookupUserIdByEmpCode(expectedApprover);
+  if (expectedUserId !== approverUserId) {
     logAudit({
       action: 'APPROVAL_UNAUTHORIZED',
       target_type: isLeave ? 'leave' : 'ot',
       target_id: id,
-      reason: `userId ${approverUserId} attempted L${lvl} but not authorized`,
+      reason: `userId ${approverUserId} attempted L${lvl} but expected ${expectedApprover}`,
     });
+    pushLineMessage(approverUserId, '⚠️ คุณไม่มีสิทธิ์อนุมัติคำขอนี้ในระดับนี้');
     return { ok: false, error: 'not_authorized_for_this_level' };
+  }
+
+  const requiredLevelsCol = headers.indexOf('required_levels');
+  const statusCol         = headers.indexOf('status');
+  const levelStatusCol    = headers.indexOf(`level_${lvl}_status`);
+  const levelAtCol        = headers.indexOf(`level_${lvl}_at`);
+  const finalAtCol        = headers.indexOf('final_approved_at');
+
+  // Idempotent guard: if this level is already decided, ack and exit
+  const currentLvlStatus = data[firstRow][levelStatusCol];
+  if (currentLvlStatus === 'approved' || currentLvlStatus === 'rejected') {
+    const wasApproved = currentLvlStatus === 'approved';
+    pushLineMessage(approverUserId,
+      wasApproved
+        ? `ℹ️ คำขอนี้คุณได้อนุมัติไว้แล้ว — ไม่ต้องกดซ้ำ`
+        : `ℹ️ คำขอนี้คุณได้ปฏิเสธไว้แล้ว — ไม่ต้องกดซ้ำ`);
+    return { ok: true, status: data[firstRow][statusCol], idempotent: true };
   }
 
   const now = formatDatetime_(new Date());
@@ -235,13 +257,6 @@ function handleApprovalAction(approverUserId, postback) {
     if (isLeave && data[i][groupCol] === groupId) targetRows.push(i);
     if (!isLeave && i === firstRow) targetRows.push(i);
   }
-
-  // Apply the action to each target row
-  const requiredLevelsCol = headers.indexOf('required_levels');
-  const statusCol = headers.indexOf('status');
-  const levelStatusCol = headers.indexOf(`level_${lvl}_status`);
-  const levelAtCol = headers.indexOf(`level_${lvl}_at`);
-  const finalAtCol = headers.indexOf('final_approved_at');
 
   targetRows.forEach(rowIdx => {
     const row = data[rowIdx];
@@ -267,7 +282,18 @@ function handleApprovalAction(approverUserId, postback) {
     sheet.getRange(rowIdx + 1, 1, 1, row.length).setValues([row]);
   });
 
-  // Notify
+  // Confirm to the approver who just acted (the Flex stays in chat — this acknowledges)
+  const empCol = headers.indexOf('emp_code');
+  const dateCol = headers.indexOf('date');
+  const reqLabel = isLeave ? 'ใบลา' : 'ใบขอ OT';
+  const empCode = data[firstRow][empCol];
+  const dateLabel = formatDate_(data[firstRow][dateCol]);
+  const ack = isApprove
+    ? `✅ คุณอนุมัติ${reqLabel}ของ ${empCode} วันที่ ${dateLabel} เรียบร้อยแล้ว`
+    : `❌ คุณปฏิเสธ${reqLabel}ของ ${empCode} วันที่ ${dateLabel} เรียบร้อยแล้ว`;
+  pushLineMessage(approverUserId, ack);
+
+  // Notify others
   if (isApprove) {
     const newStatus = data[firstRow][statusCol];
     if (newStatus === 'approved') {

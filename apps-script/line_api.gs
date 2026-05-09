@@ -190,21 +190,47 @@ function lookupUserIdByEmpCode(empCode) {
  */
 function sendApprovalFlex(approverUserId, req) {
   if (!approverUserId) return;
+  // Approver may be stored as an emp_code (per Approval_Chain convention).
+  // LINE userIds always start with 'U'; anything else gets resolved via LINE_User_Map.
+  if (!String(approverUserId).startsWith('U')) {
+    const resolved = lookupUserIdByEmpCode(approverUserId);
+    if (!resolved) {
+      console.warn('sendApprovalFlex: cannot resolve approver "' + approverUserId + '" — no LINE_User_Map entry');
+      return;
+    }
+    approverUserId = resolved;
+  }
   const action = req.isLeave ? 'leave' : 'ot';
   const title = req.isLeave ? '📝 ใบลาใหม่รออนุมัติ' : '⏰ ใบขอ OT รออนุมัติ';
   const levelTag = `(L${req.level}/${req.requiredLevels || req.level})`;
   const backdatedTag = req.isBackdated ? ' ⚠️ ย้อนหลัง' : '';
 
+  const empName = (req.firstName || req.lastName)
+    ? `${req.firstName || ''} ${req.lastName || ''}`.trim()
+    : req.empCode || '-';
+  const empSubtitle = [req.department, req.position].filter(Boolean).join(' · ') || '-';
+
   const bodyContents = [
     { type: 'text', text: title + backdatedTag, weight: 'bold', size: 'lg', wrap: true },
     { type: 'text', text: levelTag, size: 'xs', color: '#888888', margin: 'sm' },
     { type: 'separator', margin: 'md' },
-    _flexRow('พนักงาน', req.empCode || '-'),
+    { type: 'text', text: empName, weight: 'bold', size: 'md', margin: 'md', wrap: true },
+    { type: 'text', text: empSubtitle, size: 'xs', color: '#666666', wrap: true },
+    { type: 'separator', margin: 'md' },
     _flexRow('วันที่', req.date || '-'),
   ];
   if (req.isLeave) {
     bodyContents.push(_flexRow('ประเภท', req.leaveType || '-'));
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
+  }
+  if (req.stats) {
+    bodyContents.push({ type: 'separator', margin: 'md' });
+    bodyContents.push({ type: 'text', text: `สถิติลาปีนี้ (${req.stats.year})`, size: 'xs', color: '#888888', margin: 'md', weight: 'bold' });
+    ['sick', 'personal', 'vacation'].forEach(k => {
+      const s = req.stats[k];
+      const labelMap = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'พักร้อน' };
+      _flexStatRow(bodyContents, labelMap[k], s);
+    });
   }
   if (req.isBackdated) {
     bodyContents.push({
@@ -267,4 +293,18 @@ function _flexRow(label, value) {
       { type: 'text', text: String(value), wrap: true, size: 'sm', flex: 5 },
     ],
   };
+}
+
+function _flexStatRow(target, label, s) {
+  if (!s) return;
+  target.push({
+    type: 'box',
+    layout: 'baseline',
+    spacing: 'sm',
+    margin: 'xs',
+    contents: [
+      { type: 'text', text: label, color: '#666666', size: 'xs', flex: 3 },
+      { type: 'text', text: `${s.count} ครั้ง / ${s.days} วัน`, size: 'xs', flex: 5, align: 'end' },
+    ],
+  });
 }

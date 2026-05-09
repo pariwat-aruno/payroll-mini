@@ -29,6 +29,9 @@ function submitLeave(payload, ctx) {
   if (!start_date || !end_date || !leave_type) {
     throw new Error('missing_fields');
   }
+  if (!reason || String(reason).trim().length < 3) {
+    throw new Error('reason_required');
+  }
 
   const dates = [];
   let cursor = new Date(start_date);
@@ -111,16 +114,23 @@ function submitLeave(payload, ctx) {
 
   // === Notify L1 approver via Flex Message ===
   try {
+    const emp = _getEmployeeRow_(ctx.empCode);
+    const stats = _getLeaveStatsThisYear_(ctx.empCode);
     sendApprovalFlex(approvalState.level_1_approver, {
       id: rows[0].leave_id,
       level: 1,
       isLeave: true,
       empCode: ctx.empCode,
+      firstName: emp ? emp.first_name : '',
+      lastName:  emp ? emp.last_name  : '',
+      department: emp ? emp.department : '',
+      position:   emp ? emp.position   : '',
       date: dates.length === 1 ? dates[0] : `${dates[0]} ถึง ${dates[dates.length-1]} (${days} วัน)`,
       leaveType: leave_type,
       reason: reason || '-',
       requiredLevels,
       isBackdated,
+      stats,
     });
   } catch (e) {
     console.error('notify L1 approver failed: ' + e);
@@ -134,6 +144,45 @@ function submitLeave(payload, ctx) {
     required_levels: requiredLevels,
     is_backdated: isBackdated,
     backdated_reason: isBackdated ? cutoffCheck.reason : null,
+  };
+}
+
+/**
+ * Look up employee detail row by emp_code.
+ */
+function _getEmployeeRow_(empCode) {
+  const all = readTab_(getPublicSheet_(), 'Employees');
+  return all.find(e => e.emp_code === empCode) || null;
+}
+
+/**
+ * Aggregate approved leave stats for current year, grouped by leave_type.
+ * count = number of distinct request_group_id; days = number of rows.
+ */
+function _getLeaveStatsThisYear_(empCode) {
+  const year = new Date().getFullYear();
+  const records = readTab_(getPublicSheet_(), 'Leave_Records')
+    .filter(r => r.emp_code === empCode)
+    .filter(r => r.status === 'approved')
+    .filter(r => new Date(r.date).getFullYear() === year);
+
+  const groups = {};
+  records.forEach(r => {
+    const t = r.leave_type;
+    if (!groups[t]) groups[t] = new Set();
+    groups[t].add(r.request_group_id || r.leave_id);
+  });
+
+  const buildStat = (type) => ({
+    count: groups[type] ? groups[type].size : 0,
+    days:  records.filter(r => r.leave_type === type).length,
+  });
+
+  return {
+    year,
+    sick:     buildStat('sick'),
+    personal: buildStat('personal'),
+    vacation: buildStat('vacation'),
   };
 }
 

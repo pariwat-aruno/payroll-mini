@@ -205,6 +205,32 @@ function seedOwner() {
 }
 
 /**
+ * One-shot: delete WEBHOOK_DEBUG rows from Audit_Log (cleanup after onboarding).
+ * Returns number of rows removed.
+ */
+function cleanupWebhookDebug() {
+  const sheet = getSecretSheet_().getSheetByName('Audit_Log');
+  if (!sheet) { Logger.log('Audit_Log not found'); return 0; }
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const actionCol = headers.indexOf('action');
+  if (actionCol < 0) { Logger.log('action column not found'); return 0; }
+
+  // Walk bottom-up so deletions don't shift unscanned rows
+  let removed = 0;
+  for (let r = lastRow; r >= 2; r--) {
+    const v = sheet.getRange(r, actionCol + 1).getValue();
+    if (v === 'WEBHOOK_DEBUG') {
+      sheet.deleteRow(r);
+      removed++;
+    }
+  }
+  Logger.log('Removed ' + removed + ' WEBHOOK_DEBUG rows');
+  return removed;
+}
+
+/**
  * Debug helper: bypass LIFF/idToken, test the userId→empCode→quota chain.
  */
 function debugMyQuota() {
