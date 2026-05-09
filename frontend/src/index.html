@@ -2,28 +2,110 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>Payroll Mini</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+</style>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
-<div class="max-w-md w-full bg-white rounded-2xl shadow-sm p-8 text-center">
-  <h1 class="text-2xl font-bold mb-2">Payroll Mini</h1>
-  <p class="text-gray-500 text-sm mb-8">
-    ระบบจัดการเงินเดือนและการลาผ่าน LINE
-  </p>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
 
-  <p class="text-xs text-gray-400 mb-6">
-    หน้านี้ใช้สำหรับเปิดผ่าน LINE LIFF เท่านั้น<br>
-    กรุณาเข้าผ่าน Rich Menu ใน LINE Official Account
-  </p>
-
-  <details class="text-left text-xs text-gray-500 mt-8">
-    <summary class="cursor-pointer">หน้าทดสอบ (dev only)</summary>
-    <ul class="mt-3 space-y-1">
-      <li>• <a href="leave.html" class="text-blue-600 underline">leave.html</a> — ส่งใบลา</li>
-    </ul>
-  </details>
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
 </div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-8 pb-12">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-12 h-12 rounded-xl bg-white/95 p-1.5 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-xl">HumanAI</p>
+      <p class="text-xs text-white/85">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-8">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">เมนูหลัก</h1>
+    <p class="text-sm text-white/85 mt-1.5">เลือกบริการที่ต้องการ</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-6 space-y-3">
+  <a href="leave.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">ส่งใบลา</p>
+        <p class="text-xs text-slate-500 mt-0.5">กรอกใบลาและส่งขออนุมัติ</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
+  <a href="ot.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">ขอ OT</p>
+        <p class="text-xs text-slate-500 mt-0.5">บันทึกชั่วโมงทำงานนอกเวลา</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
+  <a href="quota.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">สิทธิ์การลา</p>
+        <p class="text-xs text-slate-500 mt-0.5">สิทธิ์คงเหลือและประวัติ</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
+  <a href="owner.html" class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">กล่องอนุมัติ
+          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+        </p>
+        <p class="text-xs text-slate-500 mt-0.5">อนุมัติ/ปฏิเสธคำขอที่รออยู่</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+</main>
+
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    const profile = await Liff.liffGetProfile();
+    document.getElementById('user-greeting').textContent = profile.displayName;
+  } catch (err) {
+    document.getElementById('user-greeting').textContent = '—';
+  }
+})();
+</script>
 </body>
 </html>
