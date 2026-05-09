@@ -125,7 +125,8 @@ const PUBLIC_TABS = [
               'level_1_status', 'level_1_approver', 'level_1_at',
               'level_2_status', 'level_2_approver', 'level_2_at',
               'level_3_status', 'level_3_approver', 'level_3_at',
-              'final_approved_at', 'is_backdated', 'evidence_url'],
+              'final_approved_at', 'is_backdated', 'evidence_url',
+              'evidence_type', 'evidence_pending'],
     note: '1 row = 1 day. A 3-day leave creates 3 rows but shares request_group_id. ' +
           'required_levels = 1/2/3 derived from Approval_Rules at submit time. ' +
           'status = pending_L1 | pending_L2 | pending_L3 | approved | rejected | cancelled',

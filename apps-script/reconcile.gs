@@ -23,9 +23,13 @@
  * @param {string} payload.leave_type — sick | personal | vacation | unpaid | maternity
  * @param {string} payload.reason
  * @param {string} [payload.evidence_url]
+ * @param {string} [payload.evidence_type] — none | medical_cert | appointment | receipt | photo | chat_screenshot | other
+ * @param {boolean} [payload.evidence_pending] — true if employee will submit evidence later
  */
 function submitLeave(payload, ctx) {
   const { start_date, end_date, leave_type, reason, evidence_url } = payload;
+  const evidenceType = payload.evidence_type || 'none';
+  const evidencePending = evidenceType !== 'none' && !!payload.evidence_pending;
   if (!start_date || !end_date || !leave_type) {
     throw new Error('missing_fields');
   }
@@ -94,7 +98,9 @@ function submitLeave(payload, ctx) {
     level_3_at: approvalState.level_3_at,
     final_approved_at: approvalState.final_approved_at,
     is_backdated: isBackdated ? 'TRUE' : 'FALSE',
-    evidence_url: evidence_url || '',
+    evidence_url: evidencePending ? '' : (evidence_url || ''),
+    evidence_type: evidenceType,
+    evidence_pending: evidencePending ? 'TRUE' : 'FALSE',
   }));
 
   appendRows_(publicSs, 'Leave_Records', rows);

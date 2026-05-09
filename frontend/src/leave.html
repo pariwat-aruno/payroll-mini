@@ -13,8 +13,16 @@
 <style>
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
-  /* iOS Safari sometimes makes date inputs wider than their box; force them to fit */
-  input[type="date"] { -webkit-appearance: none; appearance: none; max-width: 100%; box-sizing: border-box; }
+  /* iOS Safari: stable width regardless of empty/filled state, min-height 44px touch target,
+     16px font-size avoids auto-zoom on focus */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    font-size: 16px;
+  }
   input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 </style>
 </head>
@@ -72,18 +80,20 @@
   </section>
 
   <!-- Dates -->
-  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-4">
-    <div>
-      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่เริ่มลา</label>
-      <input type="date" name="start_date" id="start_date" required
-             class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่เริ่มลา</label>
+        <input type="date" name="start_date" id="start_date" required
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่สิ้นสุด</label>
+        <input type="date" name="end_date" id="end_date" required
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+      </div>
     </div>
-    <div>
-      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่สิ้นสุด</label>
-      <input type="date" name="end_date" id="end_date" required
-             class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
-    </div>
-    <p id="day-count" class="text-sm font-semibold text-cyan-700 min-h-[1.25em]"></p>
+    <p id="day-count" class="text-sm font-semibold text-cyan-700 min-h-[1.25em] mt-4"></p>
   </section>
 
   <!-- Reason -->
@@ -97,14 +107,36 @@
   </section>
 
   <!-- Evidence -->
-  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
-    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
-      แนบหลักฐาน <span class="text-slate-400 normal-case tracking-normal">(ถ้ามี)</span>
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
+        ประเภทหลักฐาน
+      </label>
+      <select name="evidence_type" id="evidence_type"
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+              style="font-size:16px">
+        <option value="none">ไม่มี</option>
+        <option value="medical_cert">ใบรับรองแพทย์</option>
+        <option value="appointment">ใบนัด</option>
+        <option value="receipt">ใบเสร็จ</option>
+        <option value="photo">รูปถ่าย</option>
+        <option value="chat_screenshot">chat screenshot</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div id="evidence-link-wrap">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
+        ลิงก์หลักฐาน <span class="text-slate-400 normal-case tracking-normal">(Google Drive / Photos)</span>
+      </label>
+      <input type="url" name="evidence_url" id="evidence_url"
+             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition disabled:bg-slate-100 disabled:text-slate-400"
+             placeholder="https://...">
+    </div>
+    <label id="evidence-pending-wrap" class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+      <input type="checkbox" name="evidence_pending" id="evidence_pending"
+             class="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500">
+      <span>ส่งภายหลัง (ยังไม่มีลิงก์ตอนนี้)</span>
     </label>
-    <input type="url" name="evidence_url" id="evidence_url"
-           class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
-           placeholder="ลิงก์ Google Drive / Photos">
-    <p class="text-xs text-slate-500 mt-2">เช่น ใบรับรองแพทย์ (ลาป่วยเกิน 3 วัน)</p>
   </section>
 
   <!-- Submit -->
@@ -208,6 +240,31 @@ function updateDayCount() {
 document.getElementById('start_date').addEventListener('change', updateDayCount);
 document.getElementById('end_date').addEventListener('change', updateDayCount);
 
+// === Evidence type → toggle URL field + pending checkbox ===
+function updateEvidenceUI() {
+  const type = document.getElementById('evidence_type').value;
+  const urlInput = document.getElementById('evidence_url');
+  const pendingWrap = document.getElementById('evidence-pending-wrap');
+  const pendingCb = document.getElementById('evidence_pending');
+  const linkWrap = document.getElementById('evidence-link-wrap');
+
+  if (type === 'none') {
+    urlInput.disabled = true;
+    urlInput.value = '';
+    linkWrap.classList.add('opacity-50');
+    pendingWrap.classList.add('hidden');
+    pendingCb.checked = false;
+  } else {
+    linkWrap.classList.remove('opacity-50');
+    pendingWrap.classList.remove('hidden');
+    urlInput.disabled = pendingCb.checked;
+    if (pendingCb.checked) urlInput.value = '';
+  }
+}
+document.getElementById('evidence_type').addEventListener('change', updateEvidenceUI);
+document.getElementById('evidence_pending').addEventListener('change', updateEvidenceUI);
+updateEvidenceUI();
+
 // === Submit ===
 document.getElementById('leave-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -216,12 +273,16 @@ document.getElementById('leave-form').addEventListener('submit', async (e) => {
   status.textContent = '';
   status.className = 'text-sm text-center min-h-[1.5em] font-medium';
 
+  const evidenceType = document.getElementById('evidence_type').value;
+  const evidencePending = document.getElementById('evidence_pending').checked;
   const data = {
     leave_type: document.getElementById('leave_type').value,
     start_date: document.getElementById('start_date').value,
     end_date:   document.getElementById('end_date').value,
     reason:     document.getElementById('reason').value,
-    evidence_url: document.getElementById('evidence_url').value,
+    evidence_type: evidenceType,
+    evidence_pending: evidenceType !== 'none' && evidencePending,
+    evidence_url: (evidenceType === 'none' || evidencePending) ? '' : document.getElementById('evidence_url').value,
   };
 
   if (!data.leave_type) { setStatus('กรุณาเลือกประเภทการลา', 'error'); return; }
