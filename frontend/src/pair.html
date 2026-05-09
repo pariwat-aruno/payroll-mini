@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ผูกบัญชี LINE — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">ผูกบัญชี LINE</p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">ครั้งแรกใช้งาน</h1>
+    <p class="text-sm text-white/85 mt-1.5">ใส่รหัสที่ HR ส่งให้เพื่อเริ่มใช้</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3" id="main">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+    <p class="text-sm text-slate-500">กำลังตรวจ...</p>
+  </section>
+</main>
+
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    userIdToken = Liff.liffGetIDToken();
+    const me = await Api.apiGetMe(userIdToken);
+    if (me.emp_code) {
+      // already paired
+      alreadyPaired(me);
+      return;
+    }
+    renderForm();
+  } catch (err) {
+    showError(err.message);
+  }
+})();
+
+function renderForm() {
+  document.getElementById('main').innerHTML = `
+    <form id="pair-form" class="space-y-3">
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-4">
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">รหัสพนักงาน</label>
+          <input name="emp_code" required placeholder="เช่น EMP006"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase font-mono">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">Pairing Code (6 หลัก)</label>
+          <input name="pairing_code" required pattern="\\d{6}" maxlength="6" inputmode="numeric"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-2xl text-center tracking-[0.4em] text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+          <p class="text-xs text-slate-400 mt-2">รหัสมีอายุ 24 ชั่วโมงนับจาก HR สร้าง</p>
+        </div>
+      </section>
+
+      <div class="pt-1 px-1">
+        <button type="submit" id="submit-btn"
+                class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+          ผูกบัญชี
+        </button>
+      </div>
+      <p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+    </form>
+  `;
+
+  document.getElementById('pair-form').addEventListener('submit', onSubmit);
+}
+
+async function onSubmit(e) {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  const btn = document.getElementById('submit-btn');
+  const status = document.getElementById('status-message');
+  btn.disabled = true; btn.textContent = 'กำลังผูก...';
+  status.textContent = '';
+
+  try {
+    const result = await Api.apiPairEmployee(data, userIdToken);
+    showSuccess(result);
+  } catch (err) {
+    const msg = err.message;
+    const friendly = {
+      invalid_or_expired_code: 'รหัสไม่ถูกต้องหรือหมดอายุ',
+      code_mismatch: 'รหัสพนักงานไม่ตรงกับ pairing code',
+      already_paired: 'บัญชี LINE นี้ผูกอยู่แล้ว',
+      emp_code_already_paired: 'รหัสพนักงานนี้ถูกผูกกับ LINE คนอื่นแล้ว',
+      emp_not_found: 'ไม่พบรหัสพนักงาน',
+      missing_fields: 'กรุณากรอกข้อมูลให้ครบ',
+    };
+    status.textContent = friendly[msg] || ('ผิดพลาด: ' + msg);
+    status.className = 'text-sm text-center min-h-[1.5em] font-medium text-red-600';
+    btn.disabled = false; btn.textContent = 'ผูกบัญชี';
+  }
+}
+
+function showSuccess(r) {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-8 text-center">
+      <p class="text-sm text-emerald-700 font-semibold uppercase tracking-wider">ผูกบัญชีสำเร็จ</p>
+      <p class="mt-3 text-2xl font-bold text-slate-900">${r.full_name}</p>
+      <p class="text-sm text-slate-500 mt-0.5">${r.emp_code}</p>
+    </section>
+    <a href="/" class="block w-full text-center bg-slate-900 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase active:scale-[0.99] transition">
+      เริ่มใช้งาน
+    </a>`;
+}
+
+function alreadyPaired(me) {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-slate-900">บัญชีของคุณผูกแล้ว</p>
+      <p class="text-sm text-slate-500 mt-1">${me.emp_code}</p>
+      <a href="/" class="inline-block mt-5 px-6 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium">กลับเมนู</a>
+    </section>`;
+}
+
+function showError(msg) {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-red-700">ผิดพลาด</p>
+      <p class="text-sm text-slate-500 mt-1 break-all">${msg}</p>
+    </section>`;
+}
+</script>
+</body>
+</html>

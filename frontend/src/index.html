@@ -96,6 +96,18 @@
     </div>
   </a>
 
+  <a href="onboard.html" id="onboard-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-slate-900">เพิ่มพนักงานใหม่
+          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+        </p>
+        <p class="text-xs text-slate-500 mt-0.5">กรอกครั้งเดียว ระบบสร้าง 5 row + ออก pairing code</p>
+      </div>
+      <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
   <a href="help.html" id="help-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
     <div class="flex items-center justify-between">
       <div>
@@ -105,6 +117,17 @@
         <p class="text-xs text-slate-500 mt-0.5">รอบเดือน · escalation playbook · คำสั่ง chat</p>
       </div>
       <span class="text-slate-400 text-xl">›</span>
+    </div>
+  </a>
+
+  <!-- Pair card — shown when user has no LINE_User_Map mapping yet -->
+  <a href="pair.html" id="pair-card" hidden class="menu-card block bg-white rounded-xl ring-2 ring-amber-300 bg-amber-50 p-5 active:scale-[0.99] transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-amber-900">ผูกบัญชี LINE</p>
+        <p class="text-xs text-amber-700 mt-0.5">ใส่รหัสที่ HR ส่งให้เพื่อเริ่มใช้</p>
+      </div>
+      <span class="text-amber-700 text-xl">›</span>
     </div>
   </a>
 </main>
@@ -131,7 +154,11 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
       const me = await window.PayrollApi.apiGetMe(Liff.liffGetIDToken());
       if (me && me.is_owner) {
         document.getElementById('owner-card').removeAttribute('hidden');
+        document.getElementById('onboard-card').removeAttribute('hidden');
         document.getElementById('help-card').removeAttribute('hidden');
+      } else if (me && !me.emp_code) {
+        // Not paired yet — surface the pairing card
+        document.getElementById('pair-card').removeAttribute('hidden');
       }
     } catch (_) { /* not mapped — leave cards hidden */ }
   } catch (err) {

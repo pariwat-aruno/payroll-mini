@@ -116,6 +116,18 @@ async function apiGetMe(idToken) {
   return apiPost('getMe', {}, idToken);
 }
 
+async function apiOnboardEmployee(payload, idToken) {
+  return apiPost('onboardEmployee', payload, idToken);
+}
+
+async function apiListEmployees(idToken) {
+  return apiPost('listEmployees', {}, idToken);
+}
+
+async function apiPairEmployee(payload, idToken) {
+  return apiPost('pairEmployee', payload, idToken);
+}
+
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
   window.PayrollApi = {
@@ -131,6 +143,9 @@ if (typeof window !== 'undefined') {
     apiGetMySlipPdf,
     apiPing,
     apiGetMe,
+    apiOnboardEmployee,
+    apiListEmployees,
+    apiPairEmployee,
     getBackendUrl,
   };
 }

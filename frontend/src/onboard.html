@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>เพิ่มพนักงานใหม่ — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    safelist: [
+      { pattern: /(bg|text|ring|border)-(emerald|amber|red|sky|cyan|slate)-(50|100|200|300|400|500|600|700|800|900)/ },
+    ],
+  };
+</script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; max-width: 100%; box-sizing: border-box; }
+  .field { @apply w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition; }
+  .lbl   { @apply block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">เพิ่มพนักงาน · เจ้าของ</p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">พนักงานใหม่</h1>
+    <p class="text-sm text-white/85 mt-1.5">กรอกครั้งเดียว ระบบสร้าง 5 row ให้</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3" id="main">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+    <p class="text-sm text-slate-500">กำลังตรวจสิทธิ์...</p>
+  </section>
+</main>
+
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+let employees = [];
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    userIdToken = Liff.liffGetIDToken();
+    const me = await Api.apiGetMe(userIdToken);
+    if (!me.is_owner) {
+      forbidden();
+      return;
+    }
+    employees = await Api.apiListEmployees(userIdToken);
+    renderForm();
+  } catch (err) {
+    showError(err.message);
+  }
+})();
+
+function approverOptions(includeOwner) {
+  const opts = [];
+  if (includeOwner) opts.push(`<option value="OWNER">OWNER · เจ้าของ</option>`);
+  opts.push(...employees.map(e =>
+    `<option value="${e.emp_code}">${e.emp_code} · ${e.first_name} ${e.last_name} (${e.department})</option>`));
+  return opts.join('');
+}
+
+function suggestEmpCode() {
+  const nums = employees
+    .map(e => (String(e.emp_code).match(/^EMP(\d+)$/) || [])[1])
+    .filter(Boolean)
+    .map(Number);
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return 'EMP' + String(next).padStart(3, '0');
+}
+
+function renderForm() {
+  const today = new Date().toISOString().substring(0, 10);
+  document.getElementById('main').innerHTML = `
+    <form id="onboard-form" class="space-y-3">
+
+      <!-- Basic info -->
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ข้อมูลพื้นฐาน</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">รหัสพนักงาน *</label>
+            <input name="emp_code" id="emp_code" required value="${suggestEmpCode()}"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition uppercase">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">สถานะ</label>
+            <select name="status" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+              <option value="active">active</option>
+              <option value="probation">probation</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชื่อ *</label>
+            <input name="first_name" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">นามสกุล *</label>
+            <input name="last_name" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชื่อเล่น</label>
+          <input name="nickname" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">เลขบัตรประชาชน *</label>
+          <input name="national_id" required pattern="\\d{13}" maxlength="13" inputmode="numeric"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">อีเมล *</label>
+          <input name="email" type="email" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">แผนก *</label>
+            <input name="department" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ตำแหน่ง *</label>
+            <input name="position" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">วันเริ่มงาน *</label>
+          <input name="start_date" type="date" required value="${today}" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+        </div>
+      </section>
+
+      <!-- Approval chain -->
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">สายอนุมัติ</p>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L1 หัวหน้าทันที *</label>
+          <select name="l1_approver" required class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            ${approverOptions(true)}
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L2 (สำหรับลา 3-5 วัน)</label>
+          <select name="l2_approver" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <option value="">— ไม่ระบุ —</option>
+            ${approverOptions(true)}
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">L3 (สำหรับลา 6+ วัน)</label>
+          <select name="l3_approver" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+            <option value="">— ไม่ระบุ —</option>
+            ${approverOptions(true)}
+          </select>
+        </div>
+      </section>
+
+      <!-- Schedule + Quota -->
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">ตารางทำงาน + สิทธิ์ลา</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">วันทำงาน (Mon-Sun)</label>
+            <input name="work_days_bitmap" value="1111100" maxlength="7" pattern="[01]{7}"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ชั่วโมง/วัน</label>
+            <input name="daily_hours" type="number" value="8" min="1" max="12" step="1"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ลาป่วย</label>
+            <input name="sick_quota" type="number" value="30" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">ลากิจ</label>
+            <input name="personal_quota" type="number" value="3" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">พักร้อน</label>
+            <input name="vacation_quota" type="number" value="8" min="0" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+          </div>
+        </div>
+      </section>
+
+      <!-- Salary -->
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+        <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">เงินเดือน <span class="text-slate-400 normal-case tracking-normal">(secret sheet)</span></p>
+        <div>
+          <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">Base Salary (บาท/เดือน) *</label>
+          <input name="base_salary" id="base_salary" type="number" required min="0" step="100"
+                 class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+        </div>
+        <div id="rates-preview" class="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 hidden">
+          <div class="grid grid-cols-2 gap-y-1">
+            <span>Daily rate</span><span class="text-right font-mono text-slate-900" id="rate-daily">—</span>
+            <span>Hourly rate</span><span class="text-right font-mono text-slate-900" id="rate-hourly">—</span>
+            <span>OT 1.5×</span><span class="text-right font-mono text-slate-900" id="rate-ot1">—</span>
+            <span>OT 1× (rest)</span><span class="text-right font-mono text-slate-900" id="rate-ot2">—</span>
+            <span>OT 3×</span><span class="text-right font-mono text-slate-900" id="rate-ot3">—</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="sso_eligible" checked class="w-4 h-4 rounded border-slate-300 text-cyan-600">
+            <span>ประกันสังคม</span>
+          </label>
+          <div>
+            <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1.5">PF rate</label>
+            <input name="pf_rate" type="number" value="0.05" min="0" max="0.15" step="0.01"
+                   class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition font-mono">
+          </div>
+        </div>
+      </section>
+
+      <div class="pt-1 px-1">
+        <button type="submit" id="submit-btn"
+                class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+          สร้าง + ออก Pairing Code
+        </button>
+      </div>
+
+      <p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+    </form>
+  `;
+
+  // Live rate preview
+  const baseInput = document.getElementById('base_salary');
+  const dailyHoursInput = document.querySelector('input[name="daily_hours"]');
+  const updateRates = () => {
+    const base = Number(baseInput.value);
+    const dh = Number(dailyHoursInput.value) || 8;
+    const preview = document.getElementById('rates-preview');
+    if (!base) { preview.classList.add('hidden'); return; }
+    const daily = base / 30;
+    const hourly = daily / dh;
+    const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('rate-daily').textContent  = fmt(daily);
+    document.getElementById('rate-hourly').textContent = fmt(hourly);
+    document.getElementById('rate-ot1').textContent    = fmt(hourly * 1.5);
+    document.getElementById('rate-ot2').textContent    = fmt(hourly * 1.0);
+    document.getElementById('rate-ot3').textContent    = fmt(hourly * 3.0);
+    preview.classList.remove('hidden');
+  };
+  baseInput.addEventListener('input', updateRates);
+  dailyHoursInput.addEventListener('input', updateRates);
+
+  // Submit
+  document.getElementById('onboard-form').addEventListener('submit', onSubmit);
+}
+
+async function onSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  data.sso_eligible = form.elements['sso_eligible'].checked;
+  data.base_salary = Number(data.base_salary);
+  data.daily_hours = Number(data.daily_hours);
+  data.pf_rate     = Number(data.pf_rate);
+  data.sick_quota     = Number(data.sick_quota);
+  data.personal_quota = Number(data.personal_quota);
+  data.vacation_quota = Number(data.vacation_quota);
+
+  const btn = document.getElementById('submit-btn');
+  const status = document.getElementById('status-message');
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  status.textContent = '';
+
+  try {
+    const result = await Api.apiOnboardEmployee(data, userIdToken);
+    showSuccess(result);
+  } catch (err) {
+    status.textContent = 'ผิดพลาด: ' + err.message;
+    status.className = 'text-sm text-center min-h-[1.5em] font-medium text-red-600';
+    btn.disabled = false; btn.textContent = 'สร้าง + ออก Pairing Code';
+  }
+}
+
+function showSuccess(result) {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-6 text-center">
+      <p class="text-sm text-emerald-700 font-semibold uppercase tracking-wider">สร้างสำเร็จ</p>
+      <p class="mt-2 text-xl font-bold text-slate-900">${result.full_name}</p>
+      <p class="text-sm text-slate-500 mt-0.5">${result.emp_code}</p>
+    </section>
+
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-6 text-center">
+      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">Pairing Code · 24 ชม.</p>
+      <p class="font-mono text-5xl font-bold tracking-[0.2em] text-cyan-700 mt-3">${result.pairing_code}</p>
+      <p class="text-xs text-slate-500 mt-4 leading-relaxed">
+        ส่งรหัส 6 หลักนี้ + รหัสพนักงาน <span class="font-semibold text-slate-900">${result.emp_code}</span><br>
+        ให้พนักงานเปิด LIFF → "ผูกบัญชี LINE" → ใส่ทั้งสองรหัส
+      </p>
+    </section>
+
+    <div class="grid grid-cols-2 gap-2">
+      <a href="onboard.html" class="block text-center py-3 rounded-lg border border-slate-300 bg-white text-sm font-medium active:scale-[0.98] transition">เพิ่มอีกคน</a>
+      <a href="/" class="block text-center py-3 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] transition">กลับเมนู</a>
+    </div>
+  `;
+}
+
+function forbidden() {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-red-700">ไม่มีสิทธิ์เข้าถึง</p>
+      <p class="text-sm text-slate-500 mt-1">หน้านี้สำหรับเจ้าของระบบเท่านั้น</p>
+    </section>`;
+}
+
+function showError(msg) {
+  document.getElementById('main').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-red-700">โหลดไม่สำเร็จ</p>
+      <p class="text-sm text-slate-500 mt-1 break-all">${msg}</p>
+    </section>`;
+}
+</script>
+</body>
+</html>

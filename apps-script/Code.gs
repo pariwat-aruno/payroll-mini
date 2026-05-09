@@ -35,6 +35,9 @@ function doPost(e) {
     return _jsonResponse({ ok: false, error: 'missing_action' });
   }
 
+  // Actions that work without an empCode mapping (used during onboarding/pair flow)
+  const ACTIONS_NO_MAPPING = ['pairEmployee', 'getMe'];
+
   // Verify identity (except for actions that don't need auth, like ping)
   let userContext = null;
   if (action !== 'ping') {
@@ -52,7 +55,7 @@ function doPost(e) {
       userId: verifyResult.userId,
       empCode: lookupEmpCodeByUserId(verifyResult.userId),
     };
-    if (!userContext.empCode) {
+    if (!userContext.empCode && !ACTIONS_NO_MAPPING.includes(action)) {
       return _jsonResponse({ ok: false, error: 'employee_not_mapped' });
     }
   }
@@ -114,6 +117,11 @@ function _getHandler(action) {
     listPendingApprovals: handleListPendingApprovals,
     actOnApproval: handleActOnApproval,
     runPayroll: handleRunPayroll,
+
+    // Onboarding
+    onboardEmployee:  handleOnboardEmployee,
+    listEmployees:    handleListEmployees,
+    pairEmployee:     handlePairEmployee,
 
     // Slip access (employee sees own only)
     getMySlip: handleGetMySlip,
@@ -186,6 +194,20 @@ function handleActOnApproval(payload, ctx) {
 function handleRunPayroll(payload, ctx) {
   _requireOwner(ctx);
   return runPayroll(payload.period, { force: !!payload.force });
+}
+
+function handleOnboardEmployee(payload, ctx) {
+  _requireOwner(ctx);
+  return onboardEmployee(payload);
+}
+
+function handleListEmployees(payload, ctx) {
+  _requireOwner(ctx);
+  return listEmployees();
+}
+
+function handlePairEmployee(payload, ctx) {
+  return pairEmployee(payload, ctx);
 }
 
 function handleGetMySlip(payload, ctx) {
