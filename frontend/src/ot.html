@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ขอ OT — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; max-width: 100%; box-sizing: border-box; }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value { text-align: left; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">ขอ OT</h1>
+    <p class="text-sm text-white/85 mt-1.5">บันทึกชั่วโมงทำงานนอกเวลา</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3">
+
+<form id="ot-form" class="space-y-3">
+
+  <!-- Type pick -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">ประเภท OT</label>
+    <div class="grid grid-cols-3 gap-2.5" id="type-buttons">
+      <button type="button" data-type="weekday" class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">วันทำงาน</button>
+      <button type="button" data-type="rest"    class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">วันหยุด</button>
+      <button type="button" data-type="holiday" class="ot-type-btn py-3.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">นักขัตฤกษ์</button>
+    </div>
+    <p class="text-[11px] text-slate-400 mt-2">วันทำงาน 1.5x · วันหยุด 2x · นักขัตฤกษ์ 3x</p>
+    <input type="hidden" name="ot_type" id="ot_type" required>
+  </section>
+
+  <!-- Date + Time -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-4">
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่</label>
+      <input type="date" name="date" id="date" required
+             class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">เริ่ม</label>
+        <input type="time" name="start_time" id="start_time" required
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">สิ้นสุด</label>
+        <input type="time" name="end_time" id="end_time" required
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+      </div>
+    </div>
+    <p id="duration" class="text-sm font-semibold text-cyan-700 min-h-[1.25em]"></p>
+  </section>
+
+  <!-- Reason -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">
+      เหตุผล <span class="text-red-500 normal-case tracking-normal">*</span>
+    </label>
+    <textarea name="reason" id="reason" rows="3" required minlength="3"
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 resize-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+              placeholder="ระบุเหตุผล/งานที่ทำ (อย่างน้อย 3 ตัวอักษร)"></textarea>
+  </section>
+
+  <!-- Submit -->
+  <div class="pt-1 px-1">
+    <button type="submit" id="submit-btn"
+            class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+      ส่งขอ OT
+    </button>
+  </div>
+
+  <p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+</form>
+
+</main>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+
+async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) {
+      document.getElementById('mock-banner').classList.remove('hidden');
+    }
+    const profile = await Liff.liffGetProfile();
+    userIdToken = Liff.liffGetIDToken();
+    document.getElementById('user-greeting').textContent = profile.displayName;
+  } catch (err) {
+    setStatus('โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+// === Type button highlight ===
+document.querySelectorAll('.ot-type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ot-type-btn').forEach(b => {
+      b.classList.remove('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
+      b.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+    });
+    btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+    btn.classList.add('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
+    document.getElementById('ot_type').value = btn.dataset.type;
+  });
+});
+
+// === Duration display ===
+function updateDuration() {
+  const s = document.getElementById('start_time').value;
+  const e = document.getElementById('end_time').value;
+  const out = document.getElementById('duration');
+  if (!s || !e) { out.textContent = ''; return; }
+  const [sh, sm] = s.split(':').map(Number);
+  const [eh, em] = e.split(':').map(Number);
+  const minutes = (eh * 60 + em) - (sh * 60 + sm);
+  if (minutes <= 0) {
+    out.textContent = 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม';
+    out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em]';
+  } else {
+    const hrs = (minutes / 60).toFixed(1);
+    out.textContent = `รวม ${hrs} ชม.`;
+    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em]';
+  }
+}
+document.getElementById('start_time').addEventListener('change', updateDuration);
+document.getElementById('end_time').addEventListener('change', updateDuration);
+
+// === Submit ===
+document.getElementById('ot-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  const status = document.getElementById('status-message');
+  status.textContent = '';
+  status.className = 'text-sm text-center min-h-[1.5em] font-medium';
+
+  const data = {
+    ot_type:    document.getElementById('ot_type').value,
+    date:       document.getElementById('date').value,
+    start_time: document.getElementById('start_time').value,
+    end_time:   document.getElementById('end_time').value,
+    reason:     document.getElementById('reason').value,
+  };
+
+  if (!data.ot_type) { setStatus('กรุณาเลือกประเภท OT', 'error'); return; }
+  if (!data.date || !data.start_time || !data.end_time) {
+    setStatus('กรุณากรอกวันที่และเวลา', 'error'); return;
+  }
+  if (!data.reason || data.reason.trim().length < 3) {
+    setStatus('กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร', 'error');
+    document.getElementById('reason').focus();
+    return;
+  }
+  // Validate end > start
+  const [sh, sm] = data.start_time.split(':').map(Number);
+  const [eh, em] = data.end_time.split(':').map(Number);
+  if ((eh * 60 + em) - (sh * 60 + sm) <= 0) {
+    setStatus('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังส่ง...';
+
+  try {
+    const result = await Api.apiSubmitOT(data, userIdToken);
+    setStatus('ส่งขอ OT สำเร็จ', 'success');
+    btn.textContent = 'ส่งแล้ว';
+    setTimeout(() => Liff.liffClose(), 1500);
+  } catch (err) {
+    setStatus('ส่งไม่สำเร็จ: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'ส่งขอ OT';
+  }
+});
+
+function setStatus(text, kind) {
+  const el = document.getElementById('status-message');
+  el.textContent = text;
+  el.className = 'text-sm text-center min-h-[1.5em] font-medium ' +
+    (kind === 'error' ? 'text-red-600' : kind === 'success' ? 'text-emerald-600' : '');
+}
+
+init();
+</script>
+</body>
+</html>

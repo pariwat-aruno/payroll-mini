@@ -194,6 +194,29 @@ function submitOT(payload, ctx) {
   if (!date || !start_time || !end_time || !ot_type) {
     throw new Error('missing_fields');
   }
+  if (!reason || String(reason).trim().length < 3) {
+    throw new Error('reason_required');
+  }
+  // start < end sanity check
+  const dur = timeToMinutes_(end_time) - timeToMinutes_(start_time);
+  if (dur <= 0) throw new Error('invalid_time_range');
+
+  // Cutoff check (lenient by default — flag, not reject)
+  const cutoffCheck = checkBackdated(date);
+  let isBackdated = false;
+  if (cutoffCheck.isBackdated) {
+    if (cutoffCheck.mode === 'strict') {
+      const ownerOverride = String(getSetting_('BACKDATED_REQUIRES_OWNER', 'true')).toLowerCase() === 'true';
+      if (ownerOverride && ctx.empCode !== 'OWNER') {
+        throw new Error('backdated_rejected: ' + cutoffCheck.reason);
+      }
+    }
+    isBackdated = true;
+  }
+
+  // OT uses single-level approval (L1 only).
+  const chain = getApprovalChain(ctx.empCode);
+  if (!chain.l1) throw new Error('no_l1_approver_configured');
 
   const publicSs = getPublicSheet_();
   const otId = generateId_('OT');
@@ -204,21 +227,47 @@ function submitOT(payload, ctx) {
     start_time,
     end_time,
     ot_type,
-    reason: reason || '',
+    reason: String(reason).trim(),
     submitted_at: formatDatetime_(new Date()),
-    status: 'pending',
-    approved_by: '',
-    approved_at: '',
+    status: 'pending_L1',
+    level_1_approver: chain.l1,
+    level_1_at: '',
+    final_approved_at: '',
+    is_backdated: isBackdated ? 'TRUE' : 'FALSE',
   }]);
 
   logAudit({
     action: 'SUBMIT_OT',
     target_type: 'ot_request',
     target_id: otId,
-    after: { date, start_time, end_time, ot_type },
+    after: { date, start_time, end_time, ot_type, is_backdated: isBackdated },
   });
 
-  return { ot_id: otId };
+  // Notify L1 approver via Flex
+  try {
+    const emp = _getEmployeeRow_(ctx.empCode);
+    sendApprovalFlex(chain.l1, {
+      id: otId,
+      level: 1,
+      isLeave: false,
+      empCode: ctx.empCode,
+      firstName: emp ? emp.first_name : '',
+      lastName:  emp ? emp.last_name  : '',
+      department: emp ? emp.department : '',
+      position:   emp ? emp.position   : '',
+      date,
+      otType: ot_type,
+      startTime: start_time,
+      endTime:   end_time,
+      reason: String(reason).trim(),
+      requiredLevels: 1,
+      isBackdated,
+    });
+  } catch (e) {
+    console.error('notify L1 approver (OT) failed: ' + e);
+  }
+
+  return { ot_id: otId, is_backdated: isBackdated };
 }
 
 /**

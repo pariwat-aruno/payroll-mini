@@ -222,6 +222,14 @@ function sendApprovalFlex(approverUserId, req) {
   if (req.isLeave) {
     bodyContents.push(_flexRow('ประเภท', req.leaveType || '-'));
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
+  } else {
+    // OT: type + time + reason
+    const otTypeMap = { weekday: 'วันทำงาน (1.5x)', rest: 'วันหยุด (2x)', holiday: 'นักขัตฤกษ์ (3x)' };
+    bodyContents.push(_flexRow('ประเภท', otTypeMap[req.otType] || req.otType || req.leaveType || '-'));
+    if (req.startTime || req.endTime) {
+      bodyContents.push(_flexRow('เวลา', `${req.startTime || '?'} – ${req.endTime || '?'}`));
+    }
+    if (req.reason) bodyContents.push(_flexRow('เหตุผล', req.reason));
   }
   if (req.stats) {
     bodyContents.push({ type: 'separator', margin: 'md' });
