@@ -73,14 +73,12 @@ let employees = [];
     await Liff.liffInit(LIFF_ID);
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     userIdToken = Liff.liffGetIDToken();
-    const me = await Api.apiGetMe(userIdToken);
-    if (!me.is_owner) {
-      forbidden();
-      return;
-    }
+    // listEmployees is owner-gated server-side — if it succeeds, user is owner.
+    // This collapses what used to be getMe + listEmployees into one round trip.
     employees = await Api.apiListEmployees(userIdToken);
     renderForm();
   } catch (err) {
+    if (err.message === 'forbidden_owner_only') { forbidden(); return; }
     showError(err.message);
   }
 })();
