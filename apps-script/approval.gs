@@ -317,6 +317,107 @@ function handleApprovalAction(approverUserId, postback) {
   return { ok: true, status: data[firstRow][statusCol] };
 }
 
+/**
+ * List every leave/OT request currently waiting on this approver.
+ * Used by owner.html to render an inbox.
+ */
+function listPendingApprovals(ownerUserId) {
+  const pub = getPublicSheet_();
+  const empMap = {};
+  readTab_(pub, 'Employees').forEach(e => empMap[e.emp_code] = e);
+
+  const items = [];
+
+  // ===== Leave (multi-level, group-aware) =====
+  const leave = readTab_(pub, 'Leave_Records');
+  const groups = {};
+  leave.forEach(r => {
+    const k = r.request_group_id || r.leave_id;
+    (groups[k] = groups[k] || []).push(r);
+  });
+
+  Object.values(groups).forEach(rows => {
+    rows.sort((a, b) => String(a.date) < String(b.date) ? -1 : 1);
+    const first = rows[0];
+    const m = String(first.status).match(/^pending_L(\d)$/);
+    if (!m) return;
+    const level = Number(m[1]);
+    const expected = first[`level_${level}_approver`];
+    const expectedUserId = String(expected).startsWith('U')
+      ? expected : lookupUserIdByEmpCode(expected);
+    if (expectedUserId !== ownerUserId) return;
+
+    const emp = empMap[first.emp_code] || {};
+    items.push({
+      kind: 'leave',
+      id: first.leave_id,
+      emp_code: first.emp_code,
+      first_name: emp.first_name || '',
+      last_name:  emp.last_name  || '',
+      department: emp.department || '',
+      position:   emp.position   || '',
+      leave_type: first.leave_type,
+      reason: first.reason || '',
+      start_date: formatDate_(first.date),
+      end_date:   formatDate_(rows[rows.length - 1].date),
+      days: rows.length,
+      level,
+      required_levels: Number(first.required_levels) || 1,
+      is_backdated: String(first.is_backdated).toUpperCase() === 'TRUE',
+      submitted_at: first.submitted_at,
+    });
+  });
+
+  // ===== OT (single level) =====
+  readTab_(pub, 'OT_Requests').forEach(r => {
+    if (String(r.status) !== 'pending_L1') return;
+    const expected = r.level_1_approver;
+    const expectedUserId = String(expected).startsWith('U')
+      ? expected : lookupUserIdByEmpCode(expected);
+    if (expectedUserId !== ownerUserId) return;
+
+    const emp = empMap[r.emp_code] || {};
+    items.push({
+      kind: 'ot',
+      id: r.ot_id,
+      emp_code: r.emp_code,
+      first_name: emp.first_name || '',
+      last_name:  emp.last_name  || '',
+      department: emp.department || '',
+      position:   emp.position   || '',
+      ot_type: r.ot_type,
+      reason: r.reason || '',
+      date: formatDate_(r.date),
+      start_time: r.start_time,
+      end_time:   r.end_time,
+      level: 1,
+      required_levels: 1,
+      is_backdated: String(r.is_backdated).toUpperCase() === 'TRUE',
+      submitted_at: r.submitted_at,
+    });
+  });
+
+  items.sort((a, b) => String(b.submitted_at).localeCompare(String(a.submitted_at)));
+  return items;
+}
+
+/**
+ * Act on an approval from owner LIFF (instead of postback Flex).
+ * Wraps handleApprovalAction with the same auth guarantees.
+ */
+function actOnApproval(payload, ctx) {
+  const { kind, decision, id, level } = payload;
+  if (!['approve', 'reject'].includes(decision)) throw new Error('invalid_decision');
+  if (!['leave', 'ot'].includes(kind)) throw new Error('invalid_kind');
+  if (!id || !level) throw new Error('missing_fields');
+
+  return handleApprovalAction(ctx.userId, {
+    action: `${decision}_${kind}`,
+    id,
+    level,
+  });
+}
+
 /* ============================================================
  * Notification helpers (use line_api.gs)
  * ============================================================ */

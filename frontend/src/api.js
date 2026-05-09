@@ -88,6 +88,14 @@ async function apiGetMyHistory(idToken, limit) {
   return apiPost('getMyHistory', { limit: limit || 10 }, idToken);
 }
 
+async function apiListPendingApprovals(idToken) {
+  return apiPost('listPendingApprovals', {}, idToken);
+}
+
+async function apiActOnApproval(payload, idToken) {
+  return apiPost('actOnApproval', payload, idToken);
+}
+
 async function apiPing(idToken) {
   return apiPost('ping', {}, idToken);
 }
@@ -100,6 +108,8 @@ if (typeof window !== 'undefined') {
     apiSubmitOT,
     apiGetMyQuota,
     apiGetMyHistory,
+    apiListPendingApprovals,
+    apiActOnApproval,
     apiPing,
     getBackendUrl,
   };

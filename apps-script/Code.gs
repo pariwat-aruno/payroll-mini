@@ -109,6 +109,8 @@ function _getHandler(action) {
     runReconcile: handleRunReconcile,
     listEscalations: handleListEscalations,
     resolveEscalation: handleResolveEscalation,
+    listPendingApprovals: handleListPendingApprovals,
+    actOnApproval: handleActOnApproval,
 
     // Slip access (employee sees own only)
     getMySlip: handleGetMySlip,
@@ -164,6 +166,16 @@ function handleListEscalations(payload, ctx) {
 function handleResolveEscalation(payload, ctx) {
   _requireOwner(ctx);
   return resolveEscalation(payload.esc_id, payload.resolution, ctx);
+}
+
+function handleListPendingApprovals(payload, ctx) {
+  _requireOwner(ctx);
+  return listPendingApprovals(ctx.userId);
+}
+
+function handleActOnApproval(payload, ctx) {
+  _requireOwner(ctx);
+  return actOnApproval(payload, ctx);
 }
 
 function handleGetMySlip(payload, ctx) {
