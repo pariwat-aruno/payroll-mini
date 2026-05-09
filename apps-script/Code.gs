@@ -111,6 +111,7 @@ function _getHandler(action) {
     resolveEscalation: handleResolveEscalation,
     listPendingApprovals: handleListPendingApprovals,
     actOnApproval: handleActOnApproval,
+    runPayroll: handleRunPayroll,
 
     // Slip access (employee sees own only)
     getMySlip: handleGetMySlip,
@@ -176,6 +177,11 @@ function handleListPendingApprovals(payload, ctx) {
 function handleActOnApproval(payload, ctx) {
   _requireOwner(ctx);
   return actOnApproval(payload, ctx);
+}
+
+function handleRunPayroll(payload, ctx) {
+  _requireOwner(ctx);
+  return runPayroll(payload.period, { force: !!payload.force });
 }
 
 function handleGetMySlip(payload, ctx) {
@@ -255,11 +261,37 @@ function _handleTextMessage(event) {
     return;
   }
 
+  // /payroll [YYYY-MM] [force]
+  m = text.match(/^\/?payroll(?:\s+(\d{4}-\d{2}))?(\s+force)?\s*$/i);
+  if (m) {
+    let period = m[1];
+    if (!period) {
+      const today = new Date();
+      const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      period = Utilities.formatDate(prev, 'GMT+7', 'yyyy-MM');
+    }
+    try {
+      const result = runPayroll(period, { force: !!m[2] });
+      pushLineMessage(userId,
+        `Payroll งวด ${period} เสร็จ\n` +
+        `พนักงาน: ${result.employees_processed} คน\n` +
+        `Total gross: ${result.total_gross.toLocaleString()}\n` +
+        `Total net: ${result.total_net.toLocaleString()}` +
+        (result.skipped.length ? `\nSkipped: ${result.skipped.length} (${result.skipped.map(s => s.emp_code + ':' + s.reason).join(', ')})` : ''));
+    } catch (e) {
+      pushLineMessage(userId, 'Payroll ผิดพลาด: ' + e.message);
+    }
+    return;
+  }
+
   if (/^\/?help\s*$/i.test(text)) {
     pushLineMessage(userId,
       'คำสั่ง:\n' +
       '/reconcile — รัน reconcile เดือนก่อน\n' +
       '/reconcile YYYY-MM — รันงวดที่ระบุ\n' +
+      '/payroll — คำนวณ payroll เดือนก่อน\n' +
+      '/payroll YYYY-MM — คำนวณงวดที่ระบุ\n' +
+      '/payroll YYYY-MM force — บังคับเขียนทับ (ผ่าน lock)\n' +
       '/help — แสดงคำสั่งนี้'
     );
     return;

@@ -44,15 +44,19 @@
 
 <main class="px-4 -mt-4 space-y-3">
 
-  <!-- Reconcile control -->
+  <!-- Period actions -->
   <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
     <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">งวดเงินเดือน</p>
-    <div class="flex items-center gap-2">
-      <input type="month" id="reconcile-period"
-             class="flex-1 min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+    <input type="month" id="reconcile-period"
+           class="block w-full appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition mb-3">
+    <div class="grid grid-cols-2 gap-2">
       <button id="reconcile-btn"
-              class="px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] disabled:bg-slate-400 transition whitespace-nowrap">
+              class="py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 transition">
         Reconcile
+      </button>
+      <button id="payroll-btn"
+              class="py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] disabled:bg-slate-400 transition">
+        Payroll
       </button>
     </div>
     <p id="reconcile-status" class="text-xs text-slate-500 mt-2 min-h-[1em]"></p>
@@ -103,6 +107,7 @@ async function init() {
     document.getElementById('reconcile-period').value =
       `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('reconcile-btn').addEventListener('click', onReconcile);
+    document.getElementById('payroll-btn').addEventListener('click', onPayroll);
 
     await loadInbox();
   } catch (err) {
@@ -122,7 +127,7 @@ async function onReconcile() {
 
   try {
     const result = await Api.apiPost('runReconcile', { period }, userIdToken);
-    status.textContent = `เสร็จ — ${result.reconciledRows} แถว · ${result.openEscalations} escalation เปิด · Flex สรุปส่งเข้า LINE แล้ว`;
+    status.textContent = `Reconcile เสร็จ — ${result.reconciledRows} แถว · ${result.openEscalations} escalation · Flex ส่งเข้า LINE แล้ว`;
     status.className = 'text-xs text-emerald-700 mt-2 min-h-[1em] font-medium';
   } catch (err) {
     status.textContent = 'ผิดพลาด: ' + err.message;
@@ -130,6 +135,32 @@ async function onReconcile() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Reconcile';
+  }
+}
+
+async function onPayroll() {
+  const btn = document.getElementById('payroll-btn');
+  const status = document.getElementById('reconcile-status');
+  const period = document.getElementById('reconcile-period').value;
+  if (!period) { status.textContent = 'กรุณาเลือกงวด'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังคำนวณ...';
+  status.textContent = '';
+
+  try {
+    const result = await Api.apiPost('runPayroll', { period }, userIdToken);
+    const fmt = n => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    status.textContent =
+      `Payroll งวด ${result.period} — ${result.employees_processed} คน · gross ${fmt(result.total_gross)} · net ${fmt(result.total_net)}` +
+      (result.skipped && result.skipped.length ? ` · skipped ${result.skipped.length}` : '');
+    status.className = 'text-xs text-emerald-700 mt-2 min-h-[1em] font-medium';
+  } catch (err) {
+    status.textContent = 'ผิดพลาด: ' + err.message;
+    status.className = 'text-xs text-red-600 mt-2 min-h-[1em] font-medium';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Payroll';
   }
 }
 
