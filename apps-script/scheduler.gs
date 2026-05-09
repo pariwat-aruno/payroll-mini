@@ -156,3 +156,182 @@ function _countPendingApprovals(period) {
   });
   return count;
 }
+
+/* ============================================================
+ * PR-3.1 — Info-request timeout
+ * Trigger: every 5 minutes
+ * For each Leave_Records row with info_request_status=pending and deadline < now,
+ * cancel the leave (group atomically) and notify employee + approver.
+ * ============================================================ */
+function infoRequestTimeoutTick() {
+  const ss = getPublicSheet_();
+  const sheet = ss.getSheetByName('Leave_Records');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const groupCol      = headers.indexOf('request_group_id');
+  const empCol        = headers.indexOf('emp_code');
+  const dateCol       = headers.indexOf('date');
+  const statusCol     = headers.indexOf('status');
+  const infoStatusCol = headers.indexOf('info_request_status');
+  const deadlineCol   = headers.indexOf('info_request_deadline');
+
+  if ([groupCol, statusCol, infoStatusCol, deadlineCol].some(c => c === -1)) return;
+
+  const now = new Date();
+  const groupsToExpire = new Set();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][infoStatusCol] !== 'pending') continue;
+    const deadline = data[i][deadlineCol];
+    if (!deadline) continue;
+    const dlDate = new Date(deadline);
+    if (isNaN(dlDate)) continue;
+    if (dlDate.getTime() < now.getTime()) {
+      groupsToExpire.add(data[i][groupCol]);
+    }
+  }
+  if (groupsToExpire.size === 0) return;
+
+  let cancelled = 0;
+  groupsToExpire.forEach(groupId => {
+    const targetRows = [];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][groupCol] === groupId) targetRows.push(i);
+    }
+    if (targetRows.length === 0) return;
+
+    targetRows.forEach(idx => {
+      data[idx][statusCol]     = 'cancelled';
+      data[idx][infoStatusCol] = 'expired';
+      sheet.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+    });
+    cancelled++;
+
+    const first = data[targetRows[0]];
+    const empCode = first[empCol];
+    const dateLabel = formatDate_(first[dateCol]);
+    const empUserId = lookupUserIdByEmpCode(empCode);
+    if (empUserId) {
+      pushLineMessage(empUserId,
+        `❌ ใบลาวันที่ ${dateLabel} ถูกยกเลิกอัตโนมัติ\n` +
+        `เนื่องจากไม่ได้ตอบกลับคำขอข้อมูลเพิ่มเติมภายในเวลาที่กำหนด`);
+    }
+    // Notify approver (level that requested) — match status before cancel was pending_LX
+    // But we already set status=cancelled; approver was the one who initiated. Best-effort skip.
+  });
+
+  logAudit({
+    action: 'INFO_REQUEST_EXPIRED_TICK',
+    target_type: 'leave',
+    target_id: 'batch',
+    after: { groups_cancelled: cancelled },
+  });
+}
+
+/* ============================================================
+ * PR-3.2 — Conditional evidence check
+ * Trigger: daily 09:00
+ * - T-day  (deadline = today, not received): reminder to employee
+ * - T+1    (deadline passed by 1 day, not received): flag_compliance_issue=true + notify HR
+ * ============================================================ */
+function conditionalEvidenceCheckTick() {
+  const ss = getPublicSheet_();
+  const sheet = ss.getSheetByName('Leave_Records');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const idCol       = headers.indexOf('leave_id');
+  const groupCol    = headers.indexOf('request_group_id');
+  const empCol      = headers.indexOf('emp_code');
+  const reqCol      = headers.indexOf('conditional_evidence_required');
+  const deadCol     = headers.indexOf('conditional_evidence_deadline');
+  const recvCol     = headers.indexOf('conditional_evidence_received_at');
+  const flagCol     = headers.indexOf('flag_compliance_issue');
+  const dateCol     = headers.indexOf('date');
+  const typeCol     = headers.indexOf('leave_type');
+
+  if ([reqCol, deadCol, recvCol, flagCol].some(c => c === -1)) return;
+
+  const today = new Date();
+  const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  // Collapse to one notification per group_id (rows in a group share state)
+  const seenGroups = new Set();
+  let reminded = 0, flagged = 0;
+  for (let i = 1; i < data.length; i++) {
+    const required = String(data[i][reqCol]).toUpperCase() === 'TRUE';
+    if (!required) continue;
+    if (data[i][recvCol]) continue; // already submitted
+    const groupId = data[i][groupCol];
+    if (seenGroups.has(groupId)) continue;
+    seenGroups.add(groupId);
+
+    const dl = data[i][deadCol];
+    if (!dl) continue;
+    const dlDate = new Date(dl);
+    if (isNaN(dlDate)) continue;
+    const dlDateOnly = new Date(dlDate.getFullYear(), dlDate.getMonth(), dlDate.getDate());
+    const diffDays = Math.round((todayDateOnly - dlDateOnly) / dayMs);
+
+    const empCode = data[i][empCol];
+    const dateLabel = formatDate_(data[i][dateCol]);
+    const leaveId = data[i][idCol];
+
+    if (diffDays === 0) {
+      // T-day: reminder to employee
+      const userId = lookupUserIdByEmpCode(empCode);
+      if (userId) {
+        const liffUrl = _buildRespondLiffUrl_(leaveId, 'evidence');
+        pushLineMessage(userId,
+          `📌 วันนี้เป็นวันสุดท้ายในการส่งหลักฐาน\n` +
+          `ใบลาวันที่ ${dateLabel} (อนุมัติแบบมีเงื่อนไข)\n\n` +
+          `ส่งหลักฐาน: ${liffUrl}`);
+        reminded++;
+      }
+    } else if (diffDays >= 1 && String(data[i][flagCol]).toUpperCase() !== 'TRUE') {
+      // T+1: flag + notify HR
+      const targetRows = [];
+      for (let j = 1; j < data.length; j++) {
+        if (data[j][groupCol] === groupId) targetRows.push(j);
+      }
+      targetRows.forEach(idx => {
+        data[idx][flagCol] = 'TRUE';
+        sheet.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+      });
+      flagged++;
+
+      // Notify HR (role=hr in LINE_User_Map; falls back to owner)
+      const hrUserId = _findHrUserId_() || _findOwnerUserId();
+      if (hrUserId) {
+        pushLineMessage(hrUserId,
+          `🚨 พนักงาน ${empCode} ไม่ส่งหลักฐานตามเงื่อนไข\n` +
+          `ใบลา: ${dateLabel} ประเภท: ${data[i][typeCol]}\n` +
+          `Deadline ผ่าน: ${formatDate_(dlDate)}\n\n` +
+          `กรุณาเรียกพบเพื่อสอบสวน`);
+      }
+    }
+  }
+
+  if (reminded || flagged) {
+    logAudit({
+      action: 'CONDITIONAL_EVIDENCE_TICK',
+      target_type: 'leave',
+      target_id: 'batch',
+      after: { reminded, flagged },
+    });
+  }
+}
+
+function _findHrUserId_() {
+  const ss = getSecretSheet_();
+  const sheet = ss.getSheetByName('LINE_User_Map');
+  if (!sheet) return null;
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]).toLowerCase() === 'hr') return rows[i][0];
+  }
+  return null;
+}

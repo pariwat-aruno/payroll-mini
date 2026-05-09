@@ -109,6 +109,9 @@ function _getHandler(action) {
     submitOT: handleSubmitOT,
     getMyQuota: handleGetMyQuota,
     getMyHistory: handleGetMyHistory,
+    respondInfoRequest: handleRespondInfoRequest,
+    submitConditionalEvidence: handleSubmitConditionalEvidence,
+    getLeaveForRespond: handleGetLeaveForRespond,
 
     // Owner-only — handler enforces role check internally
     runReconcile: handleRunReconcile,
@@ -164,6 +167,18 @@ function handleGetMyQuota(payload, ctx) {
 
 function handleGetMyHistory(payload, ctx) {
   return getMyHistory(ctx.empCode, payload.limit);
+}
+
+function handleRespondInfoRequest(payload, ctx) {
+  return respondInfoRequest(payload, ctx);
+}
+
+function handleSubmitConditionalEvidence(payload, ctx) {
+  return submitConditionalEvidence(payload, ctx);
+}
+
+function handleGetLeaveForRespond(payload, ctx) {
+  return getLeaveForRespond(payload, ctx);
 }
 
 function handleRunReconcile(payload, ctx) {
@@ -299,6 +314,10 @@ function _handleTextMessage(event) {
   const text = ((event.message && event.message.text) || '').trim();
   if (!userId || !text) return;
 
+  // Pending info-request "อื่นๆ" capture: if approver is in free-text mode,
+  // treat this message as the info-request message and dispatch.
+  if (consumePendingInfoRequest(userId, text)) return;
+
   const empCode = lookupEmpCodeByUserId(userId);
   // Only owner has chat commands; everyone else is silent.
   if (empCode !== 'OWNER') return;
@@ -366,8 +385,19 @@ function _handlePostback(event) {
   if (!params.action) return;
 
   // Route to approval handler
-  if (['approve_leave', 'reject_leave', 'approve_ot', 'reject_ot'].includes(params.action)) {
+  if (['approve_leave', 'reject_leave', 'approve_ot', 'reject_ot',
+       'approve_conditional_leave'].includes(params.action)) {
     handleApprovalAction(userId, params);
+    return;
   }
-  // Other postback actions can be added here
+  // PR-3.1: Info request flow
+  if (params.action === 'request_info_leave') {
+    handleInfoRequestPrompt(userId, params);
+    return;
+  }
+  if (params.action === 'info_msg_leave') {
+    // params.msg is one of 'evidence' | 'reason' | 'other'
+    handleInfoRequestSelect(userId, params);
+    return;
+  }
 }

@@ -206,6 +206,184 @@ function submitLeave(payload, ctx) {
   };
 }
 
+/* ============================================================
+ * Read-only fetch for respond.html — returns the leave summary
+ * + which mode is currently expected (info | evidence).
+ * ============================================================ */
+function getLeaveForRespond(payload, ctx) {
+  const { leave_id } = payload;
+  if (!leave_id) throw new Error('missing_leave_id');
+  const records = readTab_(getPublicSheet_(), 'Leave_Records');
+  const row = records.find(r => r.leave_id === leave_id);
+  if (!row) throw new Error('record_not_found');
+  if (row.emp_code !== ctx.empCode) throw new Error('not_your_leave');
+
+  const groupRows = records.filter(r => r.request_group_id === row.request_group_id);
+  const dates = groupRows.map(r => formatDate_(r.date)).sort();
+
+  return {
+    leave_id: row.leave_id,
+    leave_type: row.leave_type,
+    reason: row.reason,
+    start_date: dates[0],
+    end_date: dates[dates.length - 1],
+    days: groupRows.length,
+    status: row.status,
+    info_request_status: row.info_request_status || 'none',
+    info_request_message: row.info_request_message || '',
+    info_request_count: Number(row.info_request_count) || 0,
+    conditional_evidence_required: String(row.conditional_evidence_required).toUpperCase() === 'TRUE',
+    conditional_evidence_deadline: row.conditional_evidence_deadline || '',
+    conditional_evidence_received_at: row.conditional_evidence_received_at || '',
+    evidence_url: row.evidence_url || '',
+    evidence_type: row.evidence_type || 'none',
+  };
+}
+
+/* ============================================================
+ * PR-3.1 — Employee responds to an info request via LIFF
+ * Body: { leave_id, response, evidence_url?, evidence_type? }
+ * ============================================================ */
+function respondInfoRequest(payload, ctx) {
+  const { leave_id, response } = payload;
+  if (!leave_id || !response || String(response).trim().length < 2) {
+    throw new Error('missing_response');
+  }
+
+  const ss = getPublicSheet_();
+  const sheet = ss.getSheetByName('Leave_Records');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const idCol         = headers.indexOf('leave_id');
+  const groupCol      = headers.indexOf('request_group_id');
+  const empCol        = headers.indexOf('emp_code');
+  const statusInfoCol = headers.indexOf('info_request_status');
+  const responseCol   = headers.indexOf('info_request_response');
+  const evidenceCol   = headers.indexOf('evidence_url');
+  const evTypeCol     = headers.indexOf('evidence_type');
+  const dateCol       = headers.indexOf('date');
+  const reasonCol     = headers.indexOf('reason');
+  const requiredCol   = headers.indexOf('required_levels');
+  const statusCol     = headers.indexOf('status');
+
+  let firstRow = null;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === leave_id) { firstRow = i; break; }
+  }
+  if (firstRow === null) throw new Error('record_not_found');
+  if (data[firstRow][empCol] !== ctx.empCode) throw new Error('not_your_leave');
+  if (data[firstRow][statusInfoCol] !== 'pending') throw new Error('no_pending_info_request');
+
+  const groupId = data[firstRow][groupCol];
+  const targetRows = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][groupCol] === groupId) targetRows.push(i);
+  }
+
+  targetRows.forEach(idx => {
+    data[idx][statusInfoCol] = 'responded';
+    data[idx][responseCol]   = String(response).trim();
+    if (payload.evidence_url) data[idx][evidenceCol] = String(payload.evidence_url).trim();
+    if (payload.evidence_type) data[idx][evTypeCol]  = String(payload.evidence_type).trim();
+    sheet.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+  });
+
+  // Send updated Flex back to the level approver who's waiting
+  const m = String(data[firstRow][statusCol]).match(/^pending_L(\d)$/);
+  const level = m ? Number(m[1]) : 1;
+  const approver = data[firstRow][headers.indexOf(`level_${level}_approver`)];
+  const stats = _getLeaveStatsThisYear_(ctx.empCode);
+  const emp = _getEmployeeRow_(ctx.empCode);
+  const dates = targetRows.map(idx => formatDate_(data[idx][dateCol])).sort();
+  const dateLabel = dates.length === 1 ? dates[0] : `${dates[0]} ถึง ${dates[dates.length-1]} (${dates.length} วัน)`;
+  sendApprovalFlex(approver, {
+    id: leave_id,
+    level,
+    isLeave: true,
+    empCode: ctx.empCode,
+    firstName: emp ? emp.first_name : '',
+    lastName:  emp ? emp.last_name  : '',
+    department: emp ? emp.department : '',
+    position:   emp ? emp.position   : '',
+    date: dateLabel,
+    leaveType: data[firstRow][headers.indexOf('leave_type')],
+    reason: data[firstRow][reasonCol] || '-',
+    requiredLevels: Number(data[firstRow][requiredCol]) || 1,
+    isBackdated: String(data[firstRow][headers.indexOf('is_backdated')]).toUpperCase() === 'TRUE',
+    isEmergency: String(data[firstRow][headers.indexOf('is_emergency')]).toUpperCase() === 'TRUE',
+    stats,
+    infoRequestCount: Number(data[firstRow][headers.indexOf('info_request_count')]) || 1,
+    infoRequestResponse: String(response).trim(),
+  });
+
+  logAudit({
+    action: 'INFO_REQUEST_RESPONSE',
+    target_type: 'leave',
+    target_id: groupId,
+    actor_email: ctx.empCode,
+    after: { round: data[firstRow][headers.indexOf('info_request_count')] },
+  });
+
+  return { ok: true };
+}
+
+/* ============================================================
+ * PR-3.2 — Employee submits conditional evidence via LIFF
+ * Body: { leave_id, evidence_url, evidence_type? }
+ * ============================================================ */
+function submitConditionalEvidence(payload, ctx) {
+  const { leave_id, evidence_url } = payload;
+  if (!leave_id || !evidence_url || !/^https?:\/\//i.test(String(evidence_url))) {
+    throw new Error('valid_url_required');
+  }
+
+  const ss = getPublicSheet_();
+  const sheet = ss.getSheetByName('Leave_Records');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  const idCol      = headers.indexOf('leave_id');
+  const groupCol   = headers.indexOf('request_group_id');
+  const empCol     = headers.indexOf('emp_code');
+  const reqCol     = headers.indexOf('conditional_evidence_required');
+  const recvCol    = headers.indexOf('conditional_evidence_received_at');
+  const flagCol    = headers.indexOf('flag_compliance_issue');
+  const evidenceCol= headers.indexOf('evidence_url');
+  const evTypeCol  = headers.indexOf('evidence_type');
+
+  let firstRow = null;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === leave_id) { firstRow = i; break; }
+  }
+  if (firstRow === null) throw new Error('record_not_found');
+  if (data[firstRow][empCol] !== ctx.empCode) throw new Error('not_your_leave');
+  if (String(data[firstRow][reqCol]).toUpperCase() !== 'TRUE') {
+    throw new Error('no_conditional_evidence_required');
+  }
+
+  const groupId = data[firstRow][groupCol];
+  const now = formatDatetime_(new Date());
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][groupCol] !== groupId) continue;
+    data[i][recvCol] = now;
+    data[i][flagCol] = 'FALSE';
+    data[i][evidenceCol] = String(evidence_url).trim();
+    if (payload.evidence_type) data[i][evTypeCol] = String(payload.evidence_type).trim();
+    sheet.getRange(i + 1, 1, 1, data[i].length).setValues([data[i]]);
+  }
+
+  logAudit({
+    action: 'CONDITIONAL_EVIDENCE_SUBMITTED',
+    target_type: 'leave',
+    target_id: groupId,
+    actor_email: ctx.empCode,
+    after: { url: evidence_url },
+  });
+
+  return { ok: true };
+}
+
 // HH:mm parse helpers — used by half/hour leave mode
 function _isHHmm_(s) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s));

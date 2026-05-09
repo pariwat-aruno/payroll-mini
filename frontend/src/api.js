@@ -128,6 +128,18 @@ async function apiPairEmployee(payload, idToken) {
   return apiPost('pairEmployee', payload, idToken);
 }
 
+async function apiGetLeaveForRespond(idToken, leaveId) {
+  return apiPost('getLeaveForRespond', { leave_id: leaveId }, idToken);
+}
+
+async function apiRespondInfoRequest(idToken, payload) {
+  return apiPost('respondInfoRequest', payload, idToken);
+}
+
+async function apiSubmitConditionalEvidence(idToken, payload) {
+  return apiPost('submitConditionalEvidence', payload, idToken);
+}
+
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
   window.PayrollApi = {
@@ -146,6 +158,9 @@ if (typeof window !== 'undefined') {
     apiOnboardEmployee,
     apiListEmployees,
     apiPairEmployee,
+    apiGetLeaveForRespond,
+    apiRespondInfoRequest,
+    apiSubmitConditionalEvidence,
     getBackendUrl,
   };
 }

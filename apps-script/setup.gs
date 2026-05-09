@@ -129,7 +129,12 @@ const PUBLIC_TABS = [
               'evidence_type', 'evidence_pending',
               'duration_unit', 'half_day_period',
               'hour_start', 'hour_end', 'days_equivalent',
-              'is_emergency'],
+              'is_emergency',
+              'info_request_status', 'info_request_count',
+              'info_request_deadline', 'info_request_message',
+              'info_request_response',
+              'conditional_evidence_required', 'conditional_evidence_deadline',
+              'conditional_evidence_received_at', 'flag_compliance_issue'],
     note: '1 row = 1 day. A 3-day leave creates 3 rows but shares request_group_id. ' +
           'required_levels = 1/2/3 derived from Approval_Rules at submit time. ' +
           'status = pending_L1 | pending_L2 | pending_L3 | approved | rejected | cancelled',
@@ -318,6 +323,10 @@ function _seedSettings(ss) {
      'Minimum advance notice (days) for personal/vacation/unpaid leave. Sick uses LEAVE_SICK_MIN_ADVANCE_HOURS.'],
     ['LEAVE_SICK_MIN_ADVANCE_HOURS', '1',
      'Minimum advance notice (hours) for sick leave before work-start time. Below this requires is_emergency=true.'],
+    ['INFO_REQUEST_TIMEOUT_MINUTES', '30',
+     'Minutes after approver requests info before leave is auto-cancelled (PR-3.1).'],
+    ['CONDITIONAL_EVIDENCE_DAYS_AFTER_END', '1',
+     'Days after leave end_date when employee must submit conditional evidence (PR-3.2).'],
   ];
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }

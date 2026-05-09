@@ -192,6 +192,38 @@ function pushLineMessage(userId, text) {
 }
 
 /**
+ * Push a text message with Quick Reply buttons (postback actions).
+ * Each item is { label, data } — tapping fires a postback event.
+ *
+ * @param {string} userId
+ * @param {string} text — message body
+ * @param {Array<{label:string, data:string}>} items — up to 13
+ */
+function pushQuickReply(userId, text, items) {
+  const token = PropertiesService.getScriptProperties()
+    .getProperty('LINE_CHANNEL_ACCESS_TOKEN');
+  if (!token) throw new Error('LINE_CHANNEL_ACCESS_TOKEN not set');
+
+  const quickReply = {
+    items: (items || []).slice(0, 13).map(it => ({
+      type: 'action',
+      action: { type: 'postback', label: it.label, data: it.data, displayText: it.label },
+    })),
+  };
+
+  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify({
+      to: userId,
+      messages: [{ type: 'text', text, quickReply }],
+    }),
+    muteHttpExceptions: true,
+  });
+}
+
+/**
  * Reverse lookup: emp_code → LINE userId.
  * Returns null if no mapping exists yet (employee hasn't onboarded).
  */
@@ -293,6 +325,70 @@ function sendApprovalFlex(approverUserId, req) {
       margin: 'md',
     });
   }
+  // Show info-request response when this Flex is a follow-up after employee responded
+  if (req.infoRequestResponse) {
+    bodyContents.push({ type: 'separator', margin: 'md' });
+    bodyContents.push({
+      type: 'text',
+      text: `📩 พนักงานตอบกลับ (รอบ ${req.infoRequestCount || 1})`,
+      size: 'xs', color: '#888888', margin: 'md', weight: 'bold',
+    });
+    bodyContents.push({
+      type: 'text',
+      text: req.infoRequestResponse,
+      size: 'sm', color: '#222222', margin: 'sm', wrap: true,
+    });
+  }
+
+  // Footer: 2 buttons for OT, 4 buttons stacked for leave (approve / conditional / reject / info)
+  const footerContents = [
+    {
+      type: 'button',
+      style: 'primary',
+      color: '#0F5132',
+      action: {
+        type: 'postback',
+        label: '✅ อนุมัติ',
+        data: `action=approve_${action}&id=${req.id}&level=${req.level}`,
+        displayText: `อนุมัติ ${req.empCode} วันที่ ${req.date}`,
+      },
+    },
+  ];
+  if (req.isLeave) {
+    footerContents.push({
+      type: 'button',
+      style: 'primary',
+      color: '#856404',
+      action: {
+        type: 'postback',
+        label: '✅⏳ อนุมัติแบบมีเงื่อนไข',
+        data: `action=approve_conditional_leave&id=${req.id}&level=${req.level}`,
+        displayText: `อนุมัติแบบมีเงื่อนไข ${req.empCode} วันที่ ${req.date}`,
+      },
+    });
+  }
+  footerContents.push({
+    type: 'button',
+    style: 'secondary',
+    action: {
+      type: 'postback',
+      label: '❌ ปฏิเสธ',
+      data: `action=reject_${action}&id=${req.id}&level=${req.level}`,
+      displayText: `ปฏิเสธ ${req.empCode} วันที่ ${req.date}`,
+    },
+  });
+  if (req.isLeave) {
+    footerContents.push({
+      type: 'button',
+      style: 'secondary',
+      action: {
+        type: 'postback',
+        label: 'ℹ️ ขอข้อมูลเพิ่ม',
+        data: `action=request_info_leave&id=${req.id}&level=${req.level}`,
+        displayText: `ขอข้อมูลเพิ่ม ${req.empCode} วันที่ ${req.date}`,
+      },
+    });
+  }
 
   const flex = {
     type: 'bubble',
@@ -303,31 +399,9 @@ function sendApprovalFlex(approverUserId, req) {
     },
     footer: {
       type: 'box',
-      layout: 'horizontal',
+      layout: 'vertical',
       spacing: 'sm',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          color: '#0F5132',
-          action: {
-            type: 'postback',
-            label: '✅ อนุมัติ',
-            data: `action=approve_${action}&id=${req.id}&level=${req.level}`,
-            displayText: `อนุมัติ ${req.empCode} วันที่ ${req.date}`,
-          },
-        },
-        {
-          type: 'button',
-          style: 'secondary',
-          action: {
-            type: 'postback',
-            label: '❌ ปฏิเสธ',
-            data: `action=reject_${action}&id=${req.id}&level=${req.level}`,
-            displayText: `ปฏิเสธ ${req.empCode} วันที่ ${req.date}`,
-          },
-        },
-      ],
+      contents: footerContents,
     },
   };
   pushFlex(approverUserId, title, flex);

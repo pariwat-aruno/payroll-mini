@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ตอบกลับใบลา — Payroll Mini</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  input, textarea, select { font-size: 16px; min-height: 44px; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <h1 id="page-title" class="text-3xl font-bold tracking-tight">ตอบกลับใบลา</h1>
+    <p id="page-subtitle" class="text-sm text-white/85 mt-1.5">กำลังโหลด...</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3">
+
+<!-- Loading state -->
+<section id="loading" class="bg-white rounded-xl ring-1 ring-slate-200 p-5 text-center text-slate-500 text-sm">
+  กำลังโหลดข้อมูลใบลา...
+</section>
+
+<!-- Error state -->
+<section id="error-state" class="hidden bg-red-50 ring-1 ring-red-200 rounded-xl p-5 text-red-800 text-sm" id="error-msg"></section>
+
+<!-- Leave summary -->
+<section id="leave-summary" class="hidden bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-2">
+  <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">รายละเอียดใบลา</p>
+  <div class="text-sm space-y-1.5">
+    <div class="flex justify-between"><span class="text-slate-500">วันที่</span><span id="sum-date" class="font-medium"></span></div>
+    <div class="flex justify-between"><span class="text-slate-500">ประเภท</span><span id="sum-type" class="font-medium"></span></div>
+    <div class="flex justify-between"><span class="text-slate-500">เหตุผลที่กรอก</span><span id="sum-reason" class="font-medium text-right max-w-[60%]"></span></div>
+  </div>
+</section>
+
+<!-- INFO mode form -->
+<form id="info-form" class="hidden space-y-3">
+  <section class="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-5">
+    <p class="text-[11px] text-amber-700 uppercase tracking-[0.18em] font-semibold mb-2">ผู้อนุมัติขอข้อมูลเพิ่ม</p>
+    <p id="info-message" class="text-sm text-amber-900 font-medium"></p>
+  </section>
+
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ข้อความตอบกลับ <span class="text-red-500 normal-case tracking-normal">*</span></label>
+      <textarea id="info-response" rows="4" required minlength="2"
+                class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 resize-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+                placeholder="ตอบกลับให้ผู้อนุมัติ"></textarea>
+    </div>
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ประเภทหลักฐาน (ถ้ามี)</label>
+      <select id="info-evidence-type"
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+        <option value="none">ไม่ส่ง</option>
+        <option value="medical_cert">ใบรับรองแพทย์</option>
+        <option value="appointment">ใบนัด</option>
+        <option value="receipt">ใบเสร็จ</option>
+        <option value="photo">รูปถ่าย</option>
+        <option value="chat_screenshot">chat screenshot</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div id="info-url-wrap" class="hidden">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ลิงก์หลักฐาน</label>
+      <input type="url" id="info-url"
+             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+             placeholder="https://...">
+    </div>
+  </section>
+</form>
+
+<!-- EVIDENCE mode form (conditional approve) -->
+<form id="evidence-form" class="hidden space-y-3">
+  <section class="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-5">
+    <p class="text-[11px] text-amber-700 uppercase tracking-[0.18em] font-semibold mb-2">ส่งหลักฐานตามเงื่อนไข</p>
+    <p class="text-sm text-amber-900">ใบลานี้ได้รับอนุมัติแบบมีเงื่อนไข — กรุณาส่งหลักฐานภายใน <strong id="cond-deadline">-</strong></p>
+  </section>
+
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ประเภทหลักฐาน <span class="text-red-500 normal-case tracking-normal">*</span></label>
+      <select id="ev-type" required
+              class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+        <option value="medical_cert">ใบรับรองแพทย์</option>
+        <option value="appointment">ใบนัด</option>
+        <option value="receipt">ใบเสร็จ</option>
+        <option value="photo">รูปถ่าย</option>
+        <option value="chat_screenshot">chat screenshot</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ลิงก์หลักฐาน <span class="text-red-500 normal-case tracking-normal">*</span></label>
+      <input type="url" id="ev-url" required
+             class="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition"
+             placeholder="https://...">
+      <p class="text-xs text-slate-500 mt-2">วาง URL จาก Google Drive / Photos</p>
+    </div>
+  </section>
+</form>
+
+<!-- Done state -->
+<section id="done-state" class="hidden bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-5 text-emerald-800 text-sm font-medium text-center">
+  ส่งสำเร็จ
+</section>
+
+<!-- Submit -->
+<div id="submit-wrap" class="hidden pt-1 px-1">
+  <button type="button" id="submit-btn"
+          class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+    ส่ง
+  </button>
+</div>
+
+<p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+
+</main>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+const LEAVE_ID = params.get('leave_id') || '';
+const MODE = params.get('mode') || 'info'; // 'info' | 'evidence'
+
+let userIdToken = null;
+
+const $ = (id) => document.getElementById(id);
+
+async function init() {
+  if (!LEAVE_ID) {
+    showError('ไม่พบ leave_id ใน URL');
+    return;
+  }
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) $('mock-banner').classList.remove('hidden');
+    userIdToken = Liff.liffGetIDToken();
+    const leave = await Api.apiGetLeaveForRespond(userIdToken, LEAVE_ID);
+    renderLeave(leave);
+    if (MODE === 'evidence') openEvidenceMode(leave);
+    else openInfoMode(leave);
+  } catch (err) {
+    showError('โหลดข้อมูลไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function renderLeave(leave) {
+  $('loading').classList.add('hidden');
+  $('leave-summary').classList.remove('hidden');
+  $('sum-date').textContent = leave.start_date === leave.end_date
+    ? leave.start_date
+    : `${leave.start_date} — ${leave.end_date} (${leave.days} วัน)`;
+  const typeMap = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'พักร้อน', unpaid: 'ลาไม่รับเงิน', maternity: 'ลาคลอด' };
+  $('sum-type').textContent = typeMap[leave.leave_type] || leave.leave_type;
+  $('sum-reason').textContent = leave.reason || '-';
+}
+
+function openInfoMode(leave) {
+  $('page-title').textContent = 'ตอบกลับใบลา';
+  if (leave.info_request_status !== 'pending') {
+    showError(leave.info_request_status === 'expired'
+      ? 'คำขอข้อมูลเพิ่มเติมหมดอายุแล้ว — ใบลาถูกยกเลิก'
+      : 'ไม่มีคำขอข้อมูลที่รออยู่');
+    return;
+  }
+  $('page-subtitle').textContent = `รอบที่ ${leave.info_request_count}`;
+  $('info-form').classList.remove('hidden');
+  $('info-message').textContent = leave.info_request_message || '(ไม่มีข้อความ)';
+  $('submit-wrap').classList.remove('hidden');
+  $('info-evidence-type').addEventListener('change', () => {
+    $('info-url-wrap').classList.toggle('hidden', $('info-evidence-type').value === 'none');
+  });
+  $('submit-btn').addEventListener('click', submitInfo);
+}
+
+function openEvidenceMode(leave) {
+  $('page-title').textContent = 'ส่งหลักฐาน';
+  if (!leave.conditional_evidence_required) {
+    showError('ใบลานี้ไม่ต้องส่งหลักฐานเพิ่ม');
+    return;
+  }
+  if (leave.conditional_evidence_received_at) {
+    $('done-state').classList.remove('hidden');
+    $('done-state').textContent = `ส่งหลักฐานแล้วเมื่อ ${leave.conditional_evidence_received_at}`;
+    return;
+  }
+  $('page-subtitle').textContent = 'อัปโหลดลิงก์หลักฐาน';
+  $('evidence-form').classList.remove('hidden');
+  $('cond-deadline').textContent = leave.conditional_evidence_deadline || '-';
+  $('submit-wrap').classList.remove('hidden');
+  $('submit-btn').addEventListener('click', submitEvidence);
+}
+
+async function submitInfo() {
+  const response = $('info-response').value.trim();
+  const evType = $('info-evidence-type').value;
+  const url = $('info-url').value.trim();
+  if (!response || response.length < 2) { setStatus('กรุณากรอกข้อความตอบกลับ', 'error'); return; }
+  if (evType !== 'none' && !url) { setStatus('กรุณาใส่ลิงก์หลักฐาน หรือเลือก "ไม่ส่ง"', 'error'); return; }
+  const btn = $('submit-btn');
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  try {
+    await Api.apiRespondInfoRequest(userIdToken, {
+      leave_id: LEAVE_ID,
+      response,
+      evidence_url: evType === 'none' ? '' : url,
+      evidence_type: evType === 'none' ? '' : evType,
+    });
+    showDone('ส่งข้อความตอบกลับสำเร็จ');
+  } catch (err) {
+    setStatus('ส่งไม่สำเร็จ: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'ส่ง';
+  }
+}
+
+async function submitEvidence() {
+  const url = $('ev-url').value.trim();
+  const type = $('ev-type').value;
+  if (!/^https?:\/\//i.test(url)) { setStatus('กรุณาใส่ URL ที่ขึ้นต้นด้วย http:// หรือ https://', 'error'); return; }
+  const btn = $('submit-btn');
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  try {
+    await Api.apiSubmitConditionalEvidence(userIdToken, {
+      leave_id: LEAVE_ID,
+      evidence_url: url,
+      evidence_type: type,
+    });
+    showDone('ส่งหลักฐานสำเร็จ');
+  } catch (err) {
+    setStatus('ส่งไม่สำเร็จ: ' + err.message, 'error');
+    btn.disabled = false; btn.textContent = 'ส่ง';
+  }
+}
+
+function showDone(text) {
+  ['info-form', 'evidence-form', 'submit-wrap'].forEach(id => $(id).classList.add('hidden'));
+  $('done-state').classList.remove('hidden');
+  $('done-state').textContent = text;
+  setTimeout(() => Liff.liffClose(), 1500);
+}
+
+function showError(text) {
+  $('loading').classList.add('hidden');
+  $('error-state').classList.remove('hidden');
+  $('error-state').textContent = text;
+}
+
+function setStatus(text, kind) {
+  const el = $('status-message');
+  el.textContent = text;
+  el.className = 'text-sm text-center min-h-[1.5em] font-medium ' +
+    (kind === 'error' ? 'text-red-600' : kind === 'success' ? 'text-emerald-600' : '');
+}
+
+init();
+</script>
+</body>
+</html>
