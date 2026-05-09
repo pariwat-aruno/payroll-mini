@@ -115,6 +115,8 @@ function _getHandler(action) {
 
     // Slip access (employee sees own only)
     getMySlip: handleGetMySlip,
+    listMyPeriods: handleListMyPeriods,
+    getMySlipPdf: handleGetMySlipPdf,
   };
   return handlers[action] || null;
 }
@@ -185,8 +187,15 @@ function handleRunPayroll(payload, ctx) {
 }
 
 function handleGetMySlip(payload, ctx) {
-  // implemented in payroll.gs (Phase 5 — currently returns not_implemented)
   return getMySlip(ctx.empCode, payload.period);
+}
+
+function handleListMyPeriods(payload, ctx) {
+  return listMyPeriods(ctx.empCode);
+}
+
+function handleGetMySlipPdf(payload, ctx) {
+  return getMySlipPdf(ctx.empCode, payload.period);
 }
 
 /**

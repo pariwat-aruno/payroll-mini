@@ -152,6 +152,163 @@ function runPayroll(period, opts) {
   };
 }
 
+/**
+ * Fetch a single slip (Payroll_Run row) for an employee + period,
+ * enriched with employee info and current-year YTD totals.
+ */
+function getMySlip(empCode, period) {
+  if (!empCode || !period) return null;
+  const secSs = getSecretSheet_();
+  const row = readTab_(secSs, 'Payroll_Run')
+    .find(r => r.emp_code === empCode && String(r.period) === period);
+  if (!row) return null;
+
+  const emp = readTab_(getPublicSheet_(), 'Employees')
+    .find(e => e.emp_code === empCode);
+  const year = Number(period.substring(0, 4));
+  const ytd = readTab_(secSs, 'YTD_Accumulator')
+    .find(y => y.emp_code === empCode && Number(y.year) === year) || null;
+
+  return {
+    period,
+    employee: emp ? {
+      emp_code: emp.emp_code,
+      first_name: emp.first_name,
+      last_name:  emp.last_name,
+      department: emp.department,
+      position:   emp.position,
+    } : { emp_code: empCode },
+    line_items: row,
+    ytd,
+  };
+}
+
+/**
+ * List periods (YYYY-MM) for which this employee has a payroll row.
+ * Newest first.
+ */
+function listMyPeriods(empCode) {
+  if (!empCode) return [];
+  const all = readTab_(getSecretSheet_(), 'Payroll_Run')
+    .filter(r => r.emp_code === empCode)
+    .map(r => String(r.period));
+  return Array.from(new Set(all)).sort().reverse();
+}
+
+/**
+ * Generate a PDF of a slip and return as base64.
+ * Frontend converts to a blob URL and triggers a download.
+ */
+function getMySlipPdf(empCode, period) {
+  const slip = getMySlip(empCode, period);
+  if (!slip) throw new Error('slip_not_found');
+  const html = _buildSlipHtml_(slip);
+  const blob = HtmlService.createHtmlOutput(html)
+    .getAs('application/pdf')
+    .setName(`slip_${empCode}_${period}.pdf`);
+  return {
+    filename: `slip_${empCode}_${period}.pdf`,
+    mimeType: 'application/pdf',
+    base64:   Utilities.base64Encode(blob.getBytes()),
+  };
+}
+
+function _buildSlipHtml_(slip) {
+  const li = slip.line_items;
+  const emp = slip.employee;
+  const fmt = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.emp_code;
+  const subtitle = [emp.department, emp.position].filter(Boolean).join(' · ');
+
+  const earningsRows = [
+    ['เงินเดือนพื้นฐาน',          li.base_pay],
+    li.unpaid_leave_deduct ? ['ขาดงาน (ลาไม่รับเงิน ' + li.unpaid_leave_days + ' วัน)', -li.unpaid_leave_deduct] : null,
+    li.absent_deduct       ? ['ขาดงาน (' + li.absent_days + ' วัน)',                     -li.absent_deduct]      : null,
+    li.ot_1_pay ? ['ล่วงเวลา (' + li.ot_1_hours + ' ชม. × 1.5)',          li.ot_1_pay] : null,
+    li.ot_2_pay ? ['ทำงานวันหยุด (' + li.ot_2_hours + ' ชม. × 1)',         li.ot_2_pay] : null,
+    li.ot_3_pay ? ['ล่วงเวลาในวันหยุด (' + li.ot_3_hours + ' ชม. × 3)',    li.ot_3_pay] : null,
+    li.additions_total ? ['เงินเพิ่มอื่น',                               li.additions_total] : null,
+  ].filter(Boolean);
+
+  const deductionRows = [
+    li.tax              ? ['ภาษีหัก ณ ที่จ่าย', li.tax] : null,
+    li.sso              ? ['ประกันสังคม',       li.sso] : null,
+    li.pf               ? ['กองทุนสำรองเลี้ยงชีพ (PF)', li.pf] : null,
+    li.studentloan      ? ['ผ่อนกองทุนกู้ยืมเพื่อการศึกษา', li.studentloan] : null,
+    li.companyloan      ? ['ผ่อนบริษัท',        li.companyloan] : null,
+    li.manual_deductions? ['หักอื่นๆ',           li.manual_deductions] : null,
+  ].filter(Boolean);
+
+  const row = (label, amount) => `
+    <tr>
+      <td style="padding:8px 0;color:#475569;">${label}</td>
+      <td style="padding:8px 0;text-align:right;font-variant-numeric:tabular-nums;${amount<0?'color:#b91c1c;':''}">${amount<0?'−':''}${fmt(Math.abs(amount))}</td>
+    </tr>`;
+
+  const ytdSection = slip.ytd ? `
+    <h3 style="margin:24px 0 8px;font-size:12px;letter-spacing:0.18em;color:#64748b;text-transform:uppercase;">สรุปสะสมปี ${slip.ytd.year}</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      ${row('รายได้สะสม',  slip.ytd.gross_ytd)}
+      ${row('ภาษีสะสม',   slip.ytd.tax_ytd)}
+      ${row('SSO สะสม',  slip.ytd.sso_ytd)}
+      ${row('PF สะสม',    slip.ytd.pf_ytd)}
+      ${row('OT สะสม',    slip.ytd.ot_pay_ytd)}
+      ${row('Net สะสม',   slip.ytd.net_ytd)}
+    </table>` : '';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  body { font-family: 'Sarabun', 'Prompt', sans-serif; color: #0f172a; padding: 32px; }
+  .header { background: linear-gradient(135deg, #06B6D4, #10B981); color: white; padding: 18px 22px; border-radius: 12px; }
+  .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+  .header p { margin: 4px 0 0; font-size: 12px; opacity: 0.9; }
+  .meta { margin: 18px 0; }
+  .meta strong { display:block; font-size:18px; }
+  .meta small { color:#64748b; font-size:12px; }
+  h3 { margin: 20px 0 8px; font-size:12px; letter-spacing:0.18em; color:#64748b; text-transform: uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  .total { border-top: 2px solid #0f172a; font-weight: 700; }
+  .net { background: #f0fdf4; border-radius: 10px; padding: 14px 18px; margin-top: 22px; display:flex; justify-content:space-between; align-items:center; }
+  .net .label { font-size:13px; color:#475569; }
+  .net .amount { font-size:24px; font-weight:700; color:#047857; }
+</style>
+</head><body>
+  <div class="header">
+    <h1>HumanAI Payroll Slip</h1>
+    <p>งวด ${slip.period}</p>
+  </div>
+  <div class="meta">
+    <strong>${fullName}</strong>
+    <small>${subtitle || emp.emp_code}</small>
+  </div>
+
+  <h3>รายได้</h3>
+  <table>
+    ${earningsRows.map(([l, a]) => row(l, a)).join('')}
+    <tr class="total">${row('รวมรายได้ (Gross)', li.gross).replace('<tr>','').replace('</tr>','')}</tr>
+  </table>
+
+  ${deductionRows.length ? `
+  <h3>รายการหัก</h3>
+  <table>
+    ${deductionRows.map(([l, a]) => row(l, a)).join('')}
+    <tr class="total">${row('รวมรายการหัก', li.deductions_total).replace('<tr>','').replace('</tr>','')}</tr>
+  </table>` : ''}
+
+  <div class="net">
+    <span class="label">รายได้สุทธิ (Net)</span>
+    <span class="amount">${fmt(li.net)} บาท</span>
+  </div>
+
+  ${ytdSection}
+
+  <p style="margin-top:32px;font-size:10px;color:#94a3b8;text-align:center;">
+    สลิปนี้สร้างอัตโนมัติเมื่อ ${li.computed_at} · HumanAI Payroll
+  </p>
+</body></html>`;
+}
+
 /* ============================================================
  * Tax stub — replace with real Thai PIT calculation later.
  * ============================================================ */

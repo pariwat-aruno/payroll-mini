@@ -96,6 +96,18 @@ async function apiActOnApproval(payload, idToken) {
   return apiPost('actOnApproval', payload, idToken);
 }
 
+async function apiGetMySlip(idToken, period) {
+  return apiPost('getMySlip', { period }, idToken);
+}
+
+async function apiListMyPeriods(idToken) {
+  return apiPost('listMyPeriods', {}, idToken);
+}
+
+async function apiGetMySlipPdf(idToken, period) {
+  return apiPost('getMySlipPdf', { period }, idToken);
+}
+
 async function apiPing(idToken) {
   return apiPost('ping', {}, idToken);
 }
@@ -110,6 +122,9 @@ if (typeof window !== 'undefined') {
     apiGetMyHistory,
     apiListPendingApprovals,
     apiActOnApproval,
+    apiGetMySlip,
+    apiListMyPeriods,
+    apiGetMySlipPdf,
     apiPing,
     getBackendUrl,
   };

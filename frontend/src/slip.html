@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>สลิปเงินเดือน — HumanAI Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<!-- Mock banner -->
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<!-- Header -->
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 pt-7 pb-10">
+  <div class="flex items-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">สลิปเงินเดือน</h1>
+    <p class="text-sm text-white/85 mt-1.5">เฉพาะของคุณเท่านั้น</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3">
+
+<!-- Period selector -->
+<section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+  <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">เลือกงวด</label>
+  <select id="period-select"
+          class="block w-full appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+    <option value="">กำลังโหลด...</option>
+  </select>
+</section>
+
+<!-- Slip body -->
+<div id="slip-body">
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+    <p class="text-sm text-slate-500">เลือกงวดเพื่อดูสลิป</p>
+  </section>
+</div>
+
+</main>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+
+const fmt = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    const profile = await Liff.liffGetProfile();
+    userIdToken = Liff.liffGetIDToken();
+    document.getElementById('user-greeting').textContent = profile.displayName;
+
+    const periods = await Api.apiListMyPeriods(userIdToken);
+    const sel = document.getElementById('period-select');
+    if (!periods || periods.length === 0) {
+      sel.innerHTML = '<option value="">ยังไม่มีสลิป</option>';
+      sel.disabled = true;
+      showEmpty();
+      return;
+    }
+    sel.innerHTML = periods.map(p => `<option value="${p}">${p}</option>`).join('');
+    sel.addEventListener('change', () => loadSlip(sel.value));
+    await loadSlip(periods[0]);
+  } catch (err) {
+    showError(err.message);
+  }
+})();
+
+async function loadSlip(period) {
+  const body = document.getElementById('slip-body');
+  body.innerHTML = `<section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+    <p class="text-sm text-slate-500">กำลังโหลดสลิป...</p></section>`;
+  try {
+    const slip = await Api.apiGetMySlip(userIdToken, period);
+    if (!slip) { showEmpty(); return; }
+    body.innerHTML = renderSlip(slip);
+    document.getElementById('download-pdf').addEventListener('click', () => downloadPdf(period));
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function renderSlip(slip) {
+  const li = slip.line_items;
+  const emp = slip.employee || {};
+  const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.emp_code;
+  const subtitle = [emp.department, emp.position].filter(Boolean).join(' · ') || emp.emp_code || '';
+
+  const earnings = [
+    ['เงินเดือนพื้นฐาน', li.base_pay, false],
+    li.unpaid_leave_deduct ? [`ลาไม่รับเงิน ${li.unpaid_leave_days} วัน`, li.unpaid_leave_deduct, true] : null,
+    li.absent_deduct       ? [`ขาดงาน ${li.absent_days} วัน`,            li.absent_deduct,      true] : null,
+    li.ot_1_pay ? [`ล่วงเวลา ${li.ot_1_hours} ชม. (1.5×)`,          li.ot_1_pay, false] : null,
+    li.ot_2_pay ? [`ทำงานวันหยุด ${li.ot_2_hours} ชม. (+1×)`,       li.ot_2_pay, false] : null,
+    li.ot_3_pay ? [`ล่วงเวลาในวันหยุด ${li.ot_3_hours} ชม. (3×)`,    li.ot_3_pay, false] : null,
+    li.additions_total ? [`เงินเพิ่มอื่น`, li.additions_total, false] : null,
+  ].filter(Boolean);
+
+  const deductions = [
+    li.tax              ? ['ภาษีหัก ณ ที่จ่าย',         li.tax]              : null,
+    li.sso              ? ['ประกันสังคม',                 li.sso]              : null,
+    li.pf               ? ['กองทุนสำรองเลี้ยงชีพ',         li.pf]               : null,
+    li.studentloan      ? ['ผ่อนกองทุนกู้ยืมเพื่อการศึกษา', li.studentloan]      : null,
+    li.companyloan      ? ['ผ่อนบริษัท',                  li.companyloan]      : null,
+    li.manual_deductions? ['หักอื่นๆ',                    li.manual_deductions]: null,
+  ].filter(Boolean);
+
+  const lineRow = (label, amount, isDeduct) => `
+    <div class="flex justify-between text-sm py-1.5">
+      <span class="text-slate-600">${label}</span>
+      <span class="num ${isDeduct ? 'text-red-600' : 'text-slate-900'}">${isDeduct ? '−' : ''}${fmt(amount)}</span>
+    </div>`;
+
+  const ytdBlock = slip.ytd ? `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">สะสมปี ${slip.ytd.year}</p>
+      <div class="grid grid-cols-2 gap-y-1.5 text-sm">
+        <span class="text-slate-500">รายได้สะสม</span><span class="num text-right">${fmt(slip.ytd.gross_ytd)}</span>
+        <span class="text-slate-500">ภาษีสะสม</span><span class="num text-right">${fmt(slip.ytd.tax_ytd)}</span>
+        <span class="text-slate-500">SSO สะสม</span><span class="num text-right">${fmt(slip.ytd.sso_ytd)}</span>
+        <span class="text-slate-500">PF สะสม</span><span class="num text-right">${fmt(slip.ytd.pf_ytd)}</span>
+        <span class="text-slate-500">OT สะสม</span><span class="num text-right">${fmt(slip.ytd.ot_pay_ytd)}</span>
+        <span class="text-slate-500 font-medium">Net สะสม</span><span class="num text-right font-semibold">${fmt(slip.ytd.net_ytd)}</span>
+      </div>
+    </section>` : '';
+
+  return `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 mb-3">
+      <p class="font-semibold text-slate-900">${escapeHtml(fullName)}</p>
+      <p class="text-xs text-slate-500">${escapeHtml(subtitle)}</p>
+      <p class="text-[11px] text-slate-400 mt-2">งวด ${slip.period} · คำนวณเมื่อ ${li.computed_at}</p>
+    </section>
+
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 mb-3">
+      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">รายได้</p>
+      ${earnings.map(([l, a, d]) => lineRow(l, a, d)).join('')}
+      <div class="flex justify-between text-sm pt-2 mt-2 border-t border-slate-200">
+        <span class="font-semibold">รวมรายได้ (Gross)</span>
+        <span class="num font-semibold">${fmt(li.gross)}</span>
+      </div>
+    </section>
+
+    ${deductions.length ? `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 mb-3">
+      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">รายการหัก</p>
+      ${deductions.map(([l, a]) => lineRow(l, a, false)).join('')}
+      <div class="flex justify-between text-sm pt-2 mt-2 border-t border-slate-200">
+        <span class="font-semibold">รวมรายการหัก</span>
+        <span class="num font-semibold">${fmt(li.deductions_total)}</span>
+      </div>
+    </section>` : ''}
+
+    <section class="rounded-xl bg-emerald-50 p-5 mb-3 ring-1 ring-emerald-200">
+      <div class="flex justify-between items-center">
+        <p class="text-sm font-medium text-emerald-800">รายได้สุทธิ (Net)</p>
+        <p class="num text-2xl font-bold text-emerald-700">${fmt(li.net)}</p>
+      </div>
+    </section>
+
+    ${ytdBlock}
+
+    <div class="pt-1 px-1">
+      <button id="download-pdf"
+              class="w-full bg-slate-900 text-white py-3.5 rounded-lg font-semibold text-sm tracking-wide uppercase active:scale-[0.99] disabled:bg-slate-400 transition">
+        ดาวน์โหลด PDF
+      </button>
+    </div>
+    <p id="download-status" class="text-xs text-center text-slate-400 mt-2 min-h-[1em]"></p>
+  `;
+}
+
+async function downloadPdf(period) {
+  const btn = document.getElementById('download-pdf');
+  const status = document.getElementById('download-status');
+  btn.disabled = true;
+  btn.textContent = 'กำลังสร้าง PDF...';
+  status.textContent = '';
+
+  try {
+    const result = await Api.apiGetMySlipPdf(userIdToken, period);
+    const bytes = atob(result.base64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr], { type: result.mimeType });
+    const url = URL.createObjectURL(blob);
+    // Open in a new tab — works in mobile + LINE in-app browser
+    if (Liff.liffIsMock && Liff.liffIsMock()) {
+      const a = document.createElement('a');
+      a.href = url; a.download = result.filename; a.click();
+    } else if (window.liff && window.liff.openWindow) {
+      window.liff.openWindow({ url, external: true });
+    } else {
+      window.open(url, '_blank');
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    status.textContent = 'เปิด PDF แล้ว';
+    status.className = 'text-xs text-center text-emerald-600 mt-2 min-h-[1em] font-medium';
+  } catch (err) {
+    status.textContent = 'ผิดพลาด: ' + err.message;
+    status.className = 'text-xs text-center text-red-600 mt-2 min-h-[1em] font-medium';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ดาวน์โหลด PDF';
+  }
+}
+
+function showEmpty() {
+  document.getElementById('slip-body').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-slate-700">ยังไม่มีสลิป</p>
+      <p class="text-sm text-slate-400 mt-1">เจ้าของระบบยังไม่ได้รัน payroll งวดของคุณ</p>
+    </section>`;
+}
+
+function showError(msg) {
+  document.getElementById('slip-body').innerHTML = `
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-8 text-center">
+      <p class="text-base font-medium text-red-700">โหลดไม่สำเร็จ</p>
+      <p class="text-sm text-slate-500 mt-1 break-all">${escapeHtml(msg)}</p>
+    </section>`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+</script>
+</body>
+</html>
