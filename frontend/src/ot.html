@@ -89,6 +89,7 @@
       </div>
     </div>
     <p id="duration" class="text-sm font-semibold text-cyan-700 min-h-[1.25em]"></p>
+    <p id="overnight-note" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2"></p>
   </section>
 
   <!-- Reason -->
@@ -153,24 +154,45 @@ document.querySelectorAll('.ot-type-btn').forEach(btn => {
   });
 });
 
-// === Duration display ===
+// === Duration display (handles overnight when end <= start) ===
+function computeDurationMinutes(startTime, endTime) {
+  if (!startTime || !endTime) return null;
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  let minutes = (eh * 60 + em) - (sh * 60 + sm);
+  let overnight = false;
+  if (minutes <= 0) { minutes += 24 * 60; overnight = true; }
+  return { minutes, overnight };
+}
+function nextDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 function updateDuration() {
   const s = document.getElementById('start_time').value;
   const e = document.getElementById('end_time').value;
+  const dateVal = document.getElementById('date').value;
   const out = document.getElementById('duration');
+  const note = document.getElementById('overnight-note');
+  note.classList.add('hidden');
   if (!s || !e) { out.textContent = ''; return; }
-  const [sh, sm] = s.split(':').map(Number);
-  const [eh, em] = e.split(':').map(Number);
-  const minutes = (eh * 60 + em) - (sh * 60 + sm);
-  if (minutes <= 0) {
-    out.textContent = 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม';
+  const r = computeDurationMinutes(s, e);
+  if (!r || r.minutes <= 0) {
+    out.textContent = 'เวลาไม่ถูกต้อง';
     out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em]';
-  } else {
-    const hrs = (minutes / 60).toFixed(1);
-    out.textContent = `รวม ${hrs} ชม.`;
-    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em]';
+    return;
+  }
+  const hrs = (r.minutes / 60).toFixed(1);
+  out.textContent = `รวม ${hrs} ชม.`;
+  out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em]';
+  if (r.overnight) {
+    note.textContent = `ข้ามคืน → สิ้นสุด ${nextDate(dateVal) || 'วันถัดไป'}`;
+    note.classList.remove('hidden');
   }
 }
+document.getElementById('date').addEventListener('change', updateDuration);
 document.getElementById('start_time').addEventListener('change', updateDuration);
 document.getElementById('end_time').addEventListener('change', updateDuration);
 
@@ -182,11 +204,17 @@ document.getElementById('ot-form').addEventListener('submit', async (e) => {
   status.textContent = '';
   status.className = 'text-sm text-center min-h-[1.5em] font-medium';
 
+  const startTime = document.getElementById('start_time').value;
+  const endTime   = document.getElementById('end_time').value;
+  const dateVal   = document.getElementById('date').value;
+  const dur = computeDurationMinutes(startTime, endTime);
+
   const data = {
     ot_type:    document.getElementById('ot_type').value,
-    date:       document.getElementById('date').value,
-    start_time: document.getElementById('start_time').value,
-    end_time:   document.getElementById('end_time').value,
+    date:       dateVal,
+    end_date:   dur && dur.overnight ? nextDate(dateVal) : dateVal,
+    start_time: startTime,
+    end_time:   endTime,
     reason:     document.getElementById('reason').value,
   };
 
@@ -199,12 +227,7 @@ document.getElementById('ot-form').addEventListener('submit', async (e) => {
     document.getElementById('reason').focus();
     return;
   }
-  // Validate end > start
-  const [sh, sm] = data.start_time.split(':').map(Number);
-  const [eh, em] = data.end_time.split(':').map(Number);
-  if ((eh * 60 + em) - (sh * 60 + sm) <= 0) {
-    setStatus('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม', 'error'); return;
-  }
+  if (!dur || dur.minutes <= 0) { setStatus('เวลาไม่ถูกต้อง', 'error'); return; }
 
   btn.disabled = true;
   btn.textContent = 'กำลังส่ง...';

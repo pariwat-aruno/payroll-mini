@@ -306,7 +306,11 @@ function sendApprovalFlex(approverUserId, req) {
     };
     bodyContents.push(_flexRow('ประเภท', otTypeMap[req.otType] || req.otType || req.leaveType || '-'));
     if (req.startTime || req.endTime) {
-      bodyContents.push(_flexRow('เวลา', `${req.startTime || '?'} – ${req.endTime || '?'}`));
+      const isOvernight = req.endDate && req.date && req.endDate !== req.date;
+      const timeLabel = isOvernight
+        ? `${req.startTime || '?'} – ${req.endTime || '?'} (ข้ามคืน → ${req.endDate})`
+        : `${req.startTime || '?'} – ${req.endTime || '?'}`;
+      bodyContents.push(_flexRow('เวลา', timeLabel));
     }
     if (req.reason) bodyContents.push(_flexRow('เหตุผล', req.reason));
   }

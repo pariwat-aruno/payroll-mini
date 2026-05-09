@@ -144,8 +144,9 @@ const PUBLIC_TABS = [
     headers: ['ot_id', 'emp_code', 'date', 'start_time', 'end_time',
               'ot_type', 'reason', 'submitted_at', 'status',
               'level_1_approver', 'level_1_at', 'final_approved_at',
-              'is_backdated'],
-    note: 'OT requests are single-level approval (L1 only) regardless of hours.',
+              'is_backdated', 'end_date'],
+    note: 'OT requests are single-level approval (L1 only) regardless of hours. ' +
+          'end_date defaults to date; differs only for overnight OT (e.g. 23:00 → 02:00 next day).',
   },
   {
     name: 'Approval_Chain',

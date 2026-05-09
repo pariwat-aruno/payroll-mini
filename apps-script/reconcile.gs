@@ -502,9 +502,26 @@ function submitOT(payload, ctx) {
   if (!reason || String(reason).trim().length < 3) {
     throw new Error('reason_required');
   }
-  // start < end sanity check
-  const dur = timeToMinutes_(end_time) - timeToMinutes_(start_time);
+
+  // Overnight support: end_date defaults to date. If client didn't send end_date
+  // but end_time < start_time, infer end_date = date + 1 (overnight).
+  let end_date = payload.end_date || date;
+  if (!payload.end_date) {
+    const startMin = timeToMinutes_(start_time);
+    const endMin = timeToMinutes_(end_time);
+    if (endMin <= startMin) {
+      const next = new Date(date);
+      next.setDate(next.getDate() + 1);
+      end_date = formatDate_(next);
+    }
+  }
+
+  // Validate using full datetimes — overnight is now valid because end_date may differ.
+  const startDt = new Date(`${date}T${start_time}:00`);
+  const endDt   = new Date(`${end_date}T${end_time}:00`);
+  const dur = (endDt.getTime() - startDt.getTime()) / 60000;
   if (dur <= 0) throw new Error('invalid_time_range');
+  if (dur > 24 * 60) throw new Error('ot_too_long_max_24h');
 
   // Cutoff check (lenient by default — flag, not reject)
   const cutoffCheck = checkBackdated(date);
@@ -529,6 +546,7 @@ function submitOT(payload, ctx) {
     ot_id: otId,
     emp_code: ctx.empCode,
     date,
+    end_date,
     start_time,
     end_time,
     ot_type,
@@ -561,6 +579,7 @@ function submitOT(payload, ctx) {
       department: emp ? emp.department : '',
       position:   emp ? emp.position   : '',
       date,
+      endDate: end_date,
       otType: ot_type,
       startTime: start_time,
       endTime:   end_time,
