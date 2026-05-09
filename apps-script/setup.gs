@@ -171,6 +171,26 @@ const PUBLIC_TABS = [
           'Pre-populated by setup with sensible defaults.',
   },
   {
+    name: 'Public_Allowances',
+    headers: ['allowance_id', 'emp_code', 'period', 'direction',
+              'category', 'amount', 'note', 'created_at'],
+    note: 'Non-salary additions/deductions visible to HR. ' +
+          'period = YYYY-MM for one-off, or "*" for recurring (every period). ' +
+          'direction = addition | deduction. ' +
+          'category = transport | per_diem | meal | uniform | parking | communication | other. ' +
+          'IMPORTANT: discretionary per-person bonuses / commissions / salary advances are sensitive — ' +
+          'put them in Monthly_Adjustments in the Secret Sheet, NOT here.',
+  },
+  {
+    name: 'Recurring_Deductions',
+    headers: ['emp_code', 'deduction_type', 'amount',
+              'effective_from', 'effective_to', 'note'],
+    note: 'Standing deductions visible to HR (PF, SSO opt-in, student loan, company loan). ' +
+          'deduction_type = pf | sso | studentloan | companyloan | other. ' +
+          'These are non-discretionary and already appear on the slip — moved here in v2 ' +
+          'so HR can maintain them without seeing salary.',
+  },
+  {
     name: 'Attendance_Raw',
     headers: ['emp_code', 'date', 'clock_in', 'clock_out',
               'total_minutes', 'source', 'imported_at'],
@@ -208,11 +228,6 @@ const SECRET_TABS = [
               'ot_1_rate', 'ot_2_rate', 'ot_3_rate',
               'sso_eligible', 'pf_rate', 'note'],
     note: 'NEVER delete old rows. New salary = insert new row with effective_date.',
-  },
-  {
-    name: 'Recurring_Deductions',
-    headers: ['emp_code', 'deduction_type', 'amount',
-              'effective_from', 'effective_to', 'note'],
   },
   {
     name: 'Monthly_Adjustments',

@@ -28,13 +28,25 @@ function migrateSheets() {
     settings_added: [],  // [key, ...]
   };
 
-  // === 1. Header migration for Public tabs ===
+  // === 1. Schema migration for Public tabs (creates missing tabs + adds missing cols) ===
   PUBLIC_TABS.forEach(tab => {
-    const sheet = ss.getSheetByName(tab.name);
+    let sheet = ss.getSheetByName(tab.name);
+
     if (!sheet) {
-      Logger.log(`Skip ${tab.name} — sheet not found`);
+      // Create missing tab with full headers
+      sheet = ss.insertSheet(tab.name);
+      sheet.getRange(1, 1, 1, tab.headers.length).setValues([tab.headers]);
+      sheet.getRange(1, 1, 1, tab.headers.length)
+        .setFontWeight('bold')
+        .setBackground('#E8E8E8');
+      sheet.setFrozenRows(1);
+      if (tab.note) sheet.getRange(1, 1).setNote(tab.note);
+      report.tabs_created = report.tabs_created || [];
+      report.tabs_created.push(tab.name);
+      Logger.log(`+ ${tab.name}: created with ${tab.headers.length} cols`);
       return;
     }
+
     const lastCol = sheet.getLastColumn();
     const existingHeaders = lastCol > 0
       ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h))
@@ -88,9 +100,15 @@ function migrateSheets() {
 
   // === 3. Summary ===
   Logger.log('\n=== MIGRATION COMPLETE ===');
-  if (report.columns_added.length === 0 && report.settings_added.length === 0) {
+  const noChanges = (report.columns_added.length === 0)
+                 && (report.settings_added.length === 0)
+                 && !(report.tabs_created && report.tabs_created.length);
+  if (noChanges) {
     Logger.log('No changes — schema already up to date.');
   } else {
+    if (report.tabs_created && report.tabs_created.length) {
+      Logger.log(`  Tabs created: ${report.tabs_created.join(', ')}`);
+    }
     report.columns_added.forEach(r => {
       Logger.log(`  ${r.tab}: +${r.columns.length} cols`);
     });

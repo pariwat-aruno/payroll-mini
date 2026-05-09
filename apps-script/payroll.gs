@@ -35,9 +35,16 @@ function runPayroll(period, opts) {
   summaries.forEach(s => summaryMap[s.emp_code] = s);
 
   const salaries    = readTab_(secSs, 'Salary_Master');
-  const deductions  = readTab_(secSs, 'Recurring_Deductions');
+  // Recurring_Deductions: PUBLIC since v2. Legacy tenants may still have it in Secret —
+  // read from both, Public taking precedence by emp_code+deduction_type composite key.
+  const deductions  = _readRecurringDeductions_(pubSs, secSs);
   const adjustments = readTab_(secSs, 'Monthly_Adjustments').filter(a =>
     String(a.period) === period);
+
+  // Public_Allowances — non-salary additions/deductions visible to HR.
+  // period === '*' means recurring (apply every period); otherwise must match.
+  const allowances    = _readPublicAllowances_(pubSs).filter(a =>
+    String(a.period) === period || String(a.period) === '*');
 
   const existing = readTab_(secSs, 'Payroll_Run').filter(r =>
     String(r.period) === period);
@@ -75,7 +82,7 @@ function runPayroll(period, opts) {
     const ot3Pay = ot3Hours * ot3Rate;
 
     const myAdj = adjustments.filter(a => a.emp_code === emp.emp_code);
-    const additionsTotal = _sum_(myAdj.filter(a => a.direction === 'addition').map(a => a.amount));
+    const adjAdditions   = _sum_(myAdj.filter(a => a.direction === 'addition').map(a => a.amount));
     const adjManual      = _sum_(myAdj.filter(a => a.direction === 'deduction' && (a.category === 'manual' || a.category === 'manual_deduction')).map(a => a.amount));
     const adjStudentLoan = _sum_(myAdj.filter(a => a.direction === 'deduction' && a.category === 'studentloan').map(a => a.amount));
     const adjCompanyLoan = _sum_(myAdj.filter(a => a.direction === 'deduction' && a.category === 'companyloan').map(a => a.amount));
@@ -85,9 +92,15 @@ function runPayroll(period, opts) {
     const recCompanyLoan = _sum_(myRec.filter(d => d.deduction_type === 'companyloan').map(d => d.amount));
     const recOther       = _sum_(myRec.filter(d => !['studentloan', 'companyloan'].includes(d.deduction_type)).map(d => d.amount));
 
+    // HR-managed Public_Allowances for this employee
+    const myAllow = allowances.filter(a => a.emp_code === emp.emp_code);
+    const allowAdditions  = _sum_(myAllow.filter(a => a.direction === 'addition').map(a => a.amount));
+    const allowDeductions = _sum_(myAllow.filter(a => a.direction === 'deduction').map(a => a.amount));
+
+    const additionsTotal   = adjAdditions + allowAdditions;
     const studentLoan      = adjStudentLoan + recStudentLoan;
     const companyLoan      = adjCompanyLoan + recCompanyLoan;
-    const manualDeductions = adjManual + recOther;
+    const manualDeductions = adjManual + recOther + allowDeductions;
 
     const gross = basePay - unpaidLeaveDeduct - absentDeduct
                 + ot1Pay + ot2Pay + ot3Pay + additionsTotal;
@@ -407,4 +420,37 @@ function _recomputeYtd_(secSs, year) {
     }
   }
   if (rows.length > 0) appendRows_(secSs, 'YTD_Accumulator', rows);
+}
+
+/**
+ * Read Public_Allowances; returns [] if the tab doesn't exist yet (for legacy
+ * tenants on the schema before this tab landed).
+ */
+function _readPublicAllowances_(pubSs) {
+  const sheet = pubSs.getSheetByName('Public_Allowances');
+  if (!sheet) return [];
+  return readTab_(pubSs, 'Public_Allowances');
+}
+
+/**
+ * Read Recurring_Deductions, preferring the Public copy (v2+).
+ * If a tenant migrated from v1 they may still have rows in Secret —
+ * we union both so nothing is silently dropped during the transition.
+ * Public rows shadow Secret rows on the (emp_code, deduction_type) composite key.
+ */
+function _readRecurringDeductions_(pubSs, secSs) {
+  const pubSheet = pubSs.getSheetByName('Recurring_Deductions');
+  const secSheet = secSs.getSheetByName('Recurring_Deductions');
+  const pubRows = pubSheet ? readTab_(pubSs, 'Recurring_Deductions') : [];
+  const secRows = secSheet ? readTab_(secSs, 'Recurring_Deductions') : [];
+  if (pubRows.length === 0) return secRows;
+  if (secRows.length === 0) return pubRows;
+
+  const seen = new Set(pubRows.map(r => r.emp_code + '|' + r.deduction_type));
+  const merged = pubRows.slice();
+  secRows.forEach(r => {
+    const key = r.emp_code + '|' + r.deduction_type;
+    if (!seen.has(key)) merged.push(r);
+  });
+  return merged;
 }
