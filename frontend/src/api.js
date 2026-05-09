@@ -158,6 +158,9 @@ async function apiHrUpsertHoliday(idToken, payload)     { return apiPost('hrUpse
 async function apiHrDeleteHoliday(idToken, payload)     { return apiPost('hrDeleteHoliday', payload, idToken); }
 async function apiHrListLeaveQuota(idToken, payload)    { return apiPost('hrListLeaveQuota', payload || {}, idToken); }
 async function apiHrUpsertLeaveQuota(idToken, payload)  { return apiPost('hrUpsertLeaveQuota', payload, idToken); }
+async function apiListPendingChanges(idToken)           { return apiPost('listPendingChanges', {}, idToken); }
+async function apiApprovePendingChange(idToken, payload){ return apiPost('approvePendingChange', payload, idToken); }
+async function apiRejectPendingChange(idToken, payload) { return apiPost('rejectPendingChange', payload, idToken); }
 
 // Expose for both ES module and plain script tag use
 if (typeof window !== 'undefined') {
@@ -194,6 +197,9 @@ if (typeof window !== 'undefined') {
     apiHrDeleteHoliday,
     apiHrListLeaveQuota,
     apiHrUpsertLeaveQuota,
+    apiListPendingChanges,
+    apiApprovePendingChange,
+    apiRejectPendingChange,
     getBackendUrl,
   };
 }

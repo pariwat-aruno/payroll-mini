@@ -191,6 +191,18 @@ const PUBLIC_TABS = [
           'so HR can maintain them without seeing salary.',
   },
   {
+    name: 'Pending_Approvals',
+    headers: ['change_id', 'action_type', 'action_op', 'target_id',
+              'payload_json', 'summary',
+              'submitted_by', 'submitted_at',
+              'status', 'decided_by', 'decided_at', 'decision_notes'],
+    note: 'Queue of HR-initiated changes awaiting Owner approval. ' +
+          'action_type = allowance | recurring_deduction | holiday | leave_quota | employee. ' +
+          'action_op = create | update | delete. ' +
+          'status = pending | approved | rejected. ' +
+          'On approve, the system applies payload_json and updates the target sheet.',
+  },
+  {
     name: 'Attendance_Raw',
     headers: ['emp_code', 'date', 'clock_in', 'clock_out',
               'total_minutes', 'source', 'imported_at'],

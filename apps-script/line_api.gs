@@ -435,6 +435,57 @@ function _formatDurationLabel_(req) {
   return `เต็มวัน (${days} วัน)`;
 }
 
+/**
+ * Flex Message for an HR-submitted change awaiting Owner approval.
+ * @param {string} ownerUserId
+ * @param {object} req — { change_id, action_type, action_op, summary, submitted_by }
+ */
+function sendChangeApprovalFlex(ownerUserId, req) {
+  if (!ownerUserId) return;
+  const opLabel = { create: 'เพิ่ม', update: 'แก้ไข', delete: 'ลบ' }[req.action_op] || req.action_op;
+  const typeLabel = {
+    allowance: 'เงินเพิ่ม/หัก',
+    recurring_deduction: 'หักประจำ',
+    holiday: 'วันหยุด',
+    leave_quota: 'โควตาลา',
+    employee: 'ข้อมูลพนักงาน',
+  }[req.action_type] || req.action_type;
+
+  const flex = {
+    type: 'bubble',
+    body: {
+      type: 'box', layout: 'vertical', contents: [
+        { type: 'text', text: '🔔 HR ขออนุมัติการเปลี่ยนแปลง', weight: 'bold', size: 'lg', wrap: true },
+        { type: 'text', text: `${opLabel}${typeLabel}`, size: 'sm', color: '#888888', margin: 'sm' },
+        { type: 'separator', margin: 'md' },
+        _flexRow('ผู้ขอ', req.submitted_by || '-'),
+        { type: 'text', text: req.summary || '-', size: 'sm', wrap: true, margin: 'md' },
+      ],
+    },
+    footer: {
+      type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+        { type: 'button', style: 'primary', color: '#0F5132',
+          action: {
+            type: 'postback',
+            label: '✅ อนุมัติ',
+            data: `action=approve_change&id=${encodeURIComponent(req.change_id)}`,
+            displayText: `อนุมัติคำขอ ${req.change_id}`,
+          },
+        },
+        { type: 'button', style: 'secondary',
+          action: {
+            type: 'postback',
+            label: '❌ ปฏิเสธ',
+            data: `action=reject_change&id=${encodeURIComponent(req.change_id)}`,
+            displayText: `ปฏิเสธคำขอ ${req.change_id}`,
+          },
+        },
+      ],
+    },
+  };
+  pushFlex(ownerUserId, '🔔 HR ขออนุมัติการเปลี่ยนแปลง', flex);
+}
+
 function _flexRow(label, value) {
   return {
     type: 'box',

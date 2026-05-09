@@ -278,9 +278,10 @@ function openEmployeeModal(emp) {
       { type: 'text',   key: 'note',        label: 'หมายเหตุ',     value: emp.note },
     ],
     onSave: async (data) => {
-      await Api.apiHrUpsertEmployee(userIdToken, { emp_code: emp.emp_code, ...data });
+      const r = await Api.apiHrUpsertEmployee(userIdToken, { emp_code: emp.emp_code, ...data });
       employees = await Api.apiHrListEmployees(userIdToken);
       renderEmployees();
+      return r;
     },
   });
 }
@@ -340,12 +341,14 @@ function openAllowanceModal(item) {
     ],
     onSave: async (data) => {
       const payload = isEdit ? { ...data, allowance_id: item.allowance_id } : data;
-      await Api.apiHrUpsertAllowance(userIdToken, payload);
+      const r = await Api.apiHrUpsertAllowance(userIdToken, payload);
       await loadAllowances();
+      return r;
     },
     onDelete: isEdit ? async () => {
-      await Api.apiHrDeleteAllowance(userIdToken, { allowance_id: item.allowance_id });
+      const r = await Api.apiHrDeleteAllowance(userIdToken, { allowance_id: item.allowance_id });
       await loadAllowances();
+      return r;
     } : null,
   });
 }
@@ -395,12 +398,14 @@ function openRecModal(item) {
     ],
     onSave: async (data) => {
       const payload = isEdit ? { ...data, _row_index: item._row_index } : data;
-      await Api.apiHrUpsertRecurringDeduction(userIdToken, payload);
+      const r = await Api.apiHrUpsertRecurringDeduction(userIdToken, payload);
       await loadRecDeductions();
+      return r;
     },
     onDelete: isEdit ? async () => {
-      await Api.apiHrDeleteRecurringDeduction(userIdToken, { _row_index: item._row_index });
+      const r = await Api.apiHrDeleteRecurringDeduction(userIdToken, { _row_index: item._row_index });
       await loadRecDeductions();
+      return r;
     } : null,
   });
 }
@@ -444,12 +449,14 @@ function openHolidayModal(item) {
       { type: 'text',   key: 'applies_to', label: 'ใช้กับ (เริ่มต้น all)', value: item ? item.applies_to : 'all' },
     ],
     onSave: async (data) => {
-      await Api.apiHrUpsertHoliday(userIdToken, data);
+      const r = await Api.apiHrUpsertHoliday(userIdToken, data);
       await loadHolidays();
+      return r;
     },
     onDelete: isEdit ? async () => {
-      await Api.apiHrDeleteHoliday(userIdToken, { date: item.date });
+      const r = await Api.apiHrDeleteHoliday(userIdToken, { date: item.date });
       await loadHolidays();
+      return r;
     } : null,
   });
 }
@@ -495,8 +502,9 @@ function openQuotaModal(item) {
       { type: 'number', key: 'vacation_quota', label: 'พักร้อน (วัน)', value: item ? item.vacation_quota : 6 },
     ],
     onSave: async (data) => {
-      await Api.apiHrUpsertLeaveQuota(userIdToken, { ...data, year });
+      const r = await Api.apiHrUpsertLeaveQuota(userIdToken, { ...data, year });
       await loadQuota();
+      return r;
     },
   });
 }
@@ -515,10 +523,14 @@ function openModal({ title, fields, onSave, onDelete }) {
     $('modal-save').disabled = true;
     $('modal-save').textContent = 'กำลังบันทึก...';
     try {
-      await onSave(data);
-      status.textContent = 'บันทึกสำเร็จ';
+      const result = await onSave(data);
+      if (result && result.queued) {
+        status.textContent = '✉️ ส่งคำขอให้ Owner อนุมัติแล้ว';
+      } else {
+        status.textContent = '✅ บันทึกสำเร็จ';
+      }
       status.className = 'text-sm text-center min-h-[1.5em] mt-2 font-medium text-emerald-700';
-      setTimeout(closeModal, 600);
+      setTimeout(closeModal, 1100);
     } catch (err) {
       status.textContent = 'ผิดพลาด: ' + err.message;
       status.className = 'text-sm text-center min-h-[1.5em] mt-2 font-medium text-red-600';

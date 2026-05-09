@@ -128,6 +128,9 @@ function _getHandler(action) {
     hrDeleteHoliday:    handleHrDeleteHoliday,
     hrListLeaveQuota:   handleHrListLeaveQuota,
     hrUpsertLeaveQuota: handleHrUpsertLeaveQuota,
+    listPendingChanges:    handleListPendingChanges,
+    approvePendingChange:  handleApprovePendingChange,
+    rejectPendingChange:   handleRejectPendingChange,
 
     // Owner-only — handler enforces role check internally
     runReconcile: handleRunReconcile,
@@ -202,18 +205,21 @@ function handleUploadEvidence(payload, ctx) {
 }
 
 function handleHrListEmployees(payload, ctx)             { _requireHrOrOwner_(ctx); return hrListEmployees(); }
-function handleHrUpsertEmployee(payload, ctx)            { _requireHrOrOwner_(ctx); return hrUpsertEmployee(payload); }
+function handleHrUpsertEmployee(payload, ctx)            { _requireHrOrOwner_(ctx); return hrUpsertEmployee(payload, ctx); }
 function handleHrListAllowances(payload, ctx)            { _requireHrOrOwner_(ctx); return hrListAllowances(payload); }
-function handleHrUpsertAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrUpsertAllowance(payload); }
-function handleHrDeleteAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrDeleteAllowance(payload); }
+function handleHrUpsertAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrUpsertAllowance(payload, ctx); }
+function handleHrDeleteAllowance(payload, ctx)           { _requireHrOrOwner_(ctx); return hrDeleteAllowance(payload, ctx); }
 function handleHrListRecurringDeductions(payload, ctx)   { _requireHrOrOwner_(ctx); return hrListRecurringDeductions(); }
-function handleHrUpsertRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrUpsertRecurringDeduction(payload); }
-function handleHrDeleteRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrDeleteRecurringDeduction(payload); }
+function handleHrUpsertRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrUpsertRecurringDeduction(payload, ctx); }
+function handleHrDeleteRecurringDeduction(payload, ctx)  { _requireHrOrOwner_(ctx); return hrDeleteRecurringDeduction(payload, ctx); }
 function handleHrListHolidays(payload, ctx)              { _requireHrOrOwner_(ctx); return hrListHolidays(); }
-function handleHrUpsertHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrUpsertHoliday(payload); }
-function handleHrDeleteHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrDeleteHoliday(payload); }
+function handleHrUpsertHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrUpsertHoliday(payload, ctx); }
+function handleHrDeleteHoliday(payload, ctx)             { _requireHrOrOwner_(ctx); return hrDeleteHoliday(payload, ctx); }
 function handleHrListLeaveQuota(payload, ctx)            { _requireHrOrOwner_(ctx); return hrListLeaveQuota(payload); }
-function handleHrUpsertLeaveQuota(payload, ctx)          { _requireHrOrOwner_(ctx); return hrUpsertLeaveQuota(payload); }
+function handleHrUpsertLeaveQuota(payload, ctx)          { _requireHrOrOwner_(ctx); return hrUpsertLeaveQuota(payload, ctx); }
+function handleListPendingChanges(payload, ctx)          { _requireHrOrOwner_(ctx); return listPendingChanges(payload, ctx); }
+function handleApprovePendingChange(payload, ctx)        { _requireHrOrOwner_(ctx); return approvePendingChange(payload, ctx); }
+function handleRejectPendingChange(payload, ctx)         { _requireHrOrOwner_(ctx); return rejectPendingChange(payload, ctx); }
 
 function handleRunReconcile(payload, ctx) {
   _requireOwner(ctx);
@@ -442,5 +448,25 @@ function _handlePostback(event) {
     // params.msg is one of 'evidence' | 'reason' | 'other'
     handleInfoRequestSelect(userId, params);
     return;
+  }
+  // HR change approval (Owner taps approve/reject from Flex)
+  if (params.action === 'approve_change' || params.action === 'reject_change') {
+    handlePendingChangePostback_(userId, params);
+    return;
+  }
+}
+
+function handlePendingChangePostback_(userId, params) {
+  // Build a minimal ctx from userId
+  const ctx = { userId, empCode: lookupEmpCodeByUserId(userId) };
+  try {
+    const fn = params.action === 'approve_change' ? approvePendingChange : rejectPendingChange;
+    fn({ change_id: params.id }, ctx);
+    pushLineMessage(userId,
+      params.action === 'approve_change'
+        ? '✅ อนุมัติคำขอเรียบร้อยแล้ว'
+        : '❌ ปฏิเสธคำขอเรียบร้อยแล้ว');
+  } catch (err) {
+    pushLineMessage(userId, '⚠️ ทำรายการไม่สำเร็จ: ' + (err.message || err));
   }
 }
