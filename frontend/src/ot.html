@@ -52,18 +52,18 @@
   <!-- Type pick -->
   <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
     <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-3">ประเภท OT</label>
-    <div class="grid grid-cols-1 gap-2.5" id="type-buttons">
-      <button type="button" data-type="weekday" class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
-        <span>ล่วงเวลา</span>
-        <span class="text-[11px] text-slate-400">1.5×</span>
+    <div class="grid grid-cols-3 gap-2" id="type-buttons">
+      <button type="button" data-type="weekday" class="ot-type-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 transition active:scale-[0.98] flex flex-col items-center gap-0.5">
+        <span class="text-sm font-medium leading-tight">ล่วงเวลา</span>
+        <span class="text-[11px] opacity-60 leading-none">1.5×</span>
       </button>
-      <button type="button" data-type="rest"    class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
-        <span>ทำงานวันหยุด</span>
-        <span class="text-[11px] text-slate-400">+1× (รวม 2×)</span>
+      <button type="button" data-type="rest" class="ot-type-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 transition active:scale-[0.98] flex flex-col items-center gap-0.5">
+        <span class="text-sm font-medium leading-tight">วันหยุด</span>
+        <span class="text-[11px] opacity-60 leading-none">+1×</span>
       </button>
-      <button type="button" data-type="holiday" class="ot-type-btn px-4 py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98] flex items-center justify-between">
-        <span>ล่วงเวลาในวันหยุด</span>
-        <span class="text-[11px] text-slate-400">3×</span>
+      <button type="button" data-type="holiday" class="ot-type-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 transition active:scale-[0.98] flex flex-col items-center gap-0.5">
+        <span class="text-sm font-medium leading-tight">หยุด+OT</span>
+        <span class="text-[11px] opacity-60 leading-none">3×</span>
       </button>
     </div>
     <input type="hidden" name="ot_type" id="ot_type" required>
