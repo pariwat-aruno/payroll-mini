@@ -487,14 +487,37 @@ function _notifyNextLevelApprover(row, headers, nextLevel, isLeave) {
   const text = `🔔 มี${isLeave ? 'ใบลา' : 'ใบขอ OT'}ที่ผ่าน L${nextLevel-1} แล้ว ` +
                `รอการอนุมัติจากคุณ\nพนักงาน: ${row[empCol]}\nวันที่: ${formatDate_(row[dateCol])}`;
   // Send Flex with action buttons (line_api.gs has the helper)
-  sendApprovalFlex(approverId, {
+  const req = {
     id: row[idCol],
     level: nextLevel,
     isLeave,
     empCode: row[empCol],
     date: formatDate_(row[dateCol]),
     summary: text,
-  });
+  };
+  if (isLeave) {
+    const reasonCol = headers.indexOf('reason');
+    const typeCol = headers.indexOf('leave_type');
+    const reqLvlCol = headers.indexOf('required_levels');
+    const backdatedCol = headers.indexOf('is_backdated');
+    const emergencyCol = headers.indexOf('is_emergency');
+    const durationCol = headers.indexOf('duration_unit');
+    const halfCol = headers.indexOf('half_day_period');
+    const hsCol = headers.indexOf('hour_start');
+    const heCol = headers.indexOf('hour_end');
+    const deCol = headers.indexOf('days_equivalent');
+    if (typeCol !== -1) req.leaveType = row[typeCol];
+    if (reasonCol !== -1) req.reason = row[reasonCol];
+    if (reqLvlCol !== -1) req.requiredLevels = Number(row[reqLvlCol]) || 1;
+    if (backdatedCol !== -1) req.isBackdated = String(row[backdatedCol]).toUpperCase() === 'TRUE';
+    if (emergencyCol !== -1) req.isEmergency = String(row[emergencyCol]).toUpperCase() === 'TRUE';
+    if (durationCol !== -1) req.durationUnit = row[durationCol] || 'full_day';
+    if (halfCol !== -1) req.halfDayPeriod = row[halfCol] || '';
+    if (hsCol !== -1) req.hourStart = row[hsCol] || '';
+    if (heCol !== -1) req.hourEnd = row[heCol] || '';
+    if (deCol !== -1) req.daysEquivalent = Number(row[deCol]) || null;
+  }
+  sendApprovalFlex(approverId, req);
 }
 
 /* ============================================================

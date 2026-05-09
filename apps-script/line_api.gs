@@ -292,6 +292,11 @@ function sendApprovalFlex(approverUserId, req) {
     const baseTypeLabel = leaveTypeLabels[req.leaveType] || req.leaveType || '-';
     const typeLabel = req.isEmergency ? `${baseTypeLabel} (ฉุกเฉิน)` : baseTypeLabel;
     bodyContents.push(_flexRow('ประเภท', typeLabel));
+
+    // Duration row — show only for half/hour (full_day is implied by date row)
+    const durationLabel = _formatDurationLabel_(req);
+    if (durationLabel) bodyContents.push(_flexRow('ระยะเวลา', durationLabel));
+
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
   } else {
     // OT: type + time + reason
@@ -405,6 +410,24 @@ function sendApprovalFlex(approverUserId, req) {
     },
   };
   pushFlex(approverUserId, title, flex);
+}
+
+/**
+ * Build a human-readable duration label for the Flex body.
+ * Returns null for full_day (the date row already conveys it).
+ */
+function _formatDurationLabel_(req) {
+  const unit = req.durationUnit || 'full_day';
+  if (unit === 'half_day') {
+    const periodMap = { morning: 'เช้า', afternoon: 'บ่าย' };
+    return `ครึ่งวัน (${periodMap[req.halfDayPeriod] || '-'})`;
+  }
+  if (unit === 'hour') {
+    const hours = req.daysEquivalent ? (Number(req.daysEquivalent) * 8) : null;
+    const hoursLabel = hours !== null ? ` (${Math.round(hours * 100) / 100} ชม.)` : '';
+    return `${req.hourStart || '?'} – ${req.hourEnd || '?'}${hoursLabel}`;
+  }
+  return null;
 }
 
 function _flexRow(label, value) {

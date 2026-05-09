@@ -189,6 +189,11 @@ function submitLeave(payload, ctx) {
       requiredLevels,
       isBackdated,
       isEmergency,
+      durationUnit,
+      halfDayPeriod,
+      hourStart,
+      hourEnd,
+      daysEquivalent: perRowDaysEquivalent,
       stats,
     });
   } catch (e) {
@@ -312,6 +317,11 @@ function respondInfoRequest(payload, ctx) {
     requiredLevels: Number(data[firstRow][requiredCol]) || 1,
     isBackdated: String(data[firstRow][headers.indexOf('is_backdated')]).toUpperCase() === 'TRUE',
     isEmergency: String(data[firstRow][headers.indexOf('is_emergency')]).toUpperCase() === 'TRUE',
+    durationUnit: data[firstRow][headers.indexOf('duration_unit')] || 'full_day',
+    halfDayPeriod: data[firstRow][headers.indexOf('half_day_period')] || '',
+    hourStart: data[firstRow][headers.indexOf('hour_start')] || '',
+    hourEnd:   data[firstRow][headers.indexOf('hour_end')]   || '',
+    daysEquivalent: Number(data[firstRow][headers.indexOf('days_equivalent')]) || null,
     stats,
     infoRequestCount: Number(data[firstRow][headers.indexOf('info_request_count')]) || 1,
     infoRequestResponse: String(response).trim(),
