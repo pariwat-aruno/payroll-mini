@@ -79,6 +79,40 @@
     <input type="hidden" name="leave_type" id="leave_type" required>
   </section>
 
+  <!-- Duration -->
+  <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+    <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-1">ระยะเวลา</label>
+    <div class="grid grid-cols-3 gap-2" id="duration-buttons">
+      <button type="button" data-duration="full_day" class="duration-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">เต็มวัน</button>
+      <button type="button" data-duration="half_day" class="duration-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">ครึ่งวัน</button>
+      <button type="button" data-duration="hour"     class="duration-btn py-3 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium transition active:scale-[0.98]">รายชั่วโมง</button>
+    </div>
+    <input type="hidden" name="duration_unit" id="duration_unit" value="full_day">
+
+    <div id="half-day-wrap" class="hidden">
+      <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">ช่วงเวลา</label>
+      <select id="half_day_period" class="w-full bg-white border border-slate-300 rounded-lg p-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none" style="font-size:16px">
+        <option value="morning">เช้า</option>
+        <option value="afternoon">บ่าย</option>
+      </select>
+    </div>
+
+    <div id="hour-wrap" class="hidden grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">เริ่ม</label>
+        <input type="time" id="hour_start"
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none"
+               style="font-size:16px;min-height:44px">
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">จบ</label>
+        <input type="time" id="hour_end"
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none"
+               style="font-size:16px;min-height:44px">
+      </div>
+    </div>
+  </section>
+
   <!-- Dates -->
   <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
     <div class="grid grid-cols-2 gap-3">
@@ -90,7 +124,7 @@
       <div>
         <label class="block text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-2">วันที่สิ้นสุด</label>
         <input type="date" name="end_date" id="end_date" required
-               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition">
+               class="block w-full min-w-0 appearance-none bg-white border border-slate-300 rounded-lg px-3 py-3 text-base text-slate-900 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 focus:outline-none transition disabled:bg-slate-100 disabled:text-slate-500">
       </div>
     </div>
     <p id="day-count" class="text-sm font-semibold text-cyan-700 min-h-[1.25em] mt-4"></p>
@@ -137,6 +171,22 @@
              class="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500">
       <span>ส่งภายหลัง (ยังไม่มีลิงก์ตอนนี้)</span>
     </label>
+  </section>
+
+  <!-- Emergency banner (shown when sick/personal doesn't meet advance notice) -->
+  <section id="emergency-wrap" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-3">
+    <p class="text-sm font-semibold text-amber-800">⚠️ คำขอนี้ไม่ทันกำหนดเวลาล่วงหน้า</p>
+    <p class="text-xs text-amber-800" id="emergency-detail">ต้องเป็นการลาฉุกเฉิน — กรุณาติ๊กยืนยัน</p>
+    <label class="flex items-center gap-2 text-sm text-amber-900 cursor-pointer">
+      <input type="checkbox" id="is_emergency" class="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500">
+      <span>ยืนยันว่าเป็นการลาฉุกเฉิน</span>
+    </label>
+  </section>
+
+  <!-- Late-notice block (shown for vacation/unpaid that doesn't meet advance — no override) -->
+  <section id="late-notice-wrap" class="hidden bg-red-50 border border-red-300 rounded-xl p-4">
+    <p class="text-sm font-semibold text-red-800">❌ คำขอนี้ไม่ทันกำหนดเวลาล่วงหน้า</p>
+    <p class="text-xs text-red-700 mt-1" id="late-notice-detail">ลาประเภทนี้ไม่รองรับโหมดฉุกเฉิน — กรุณาเลือกวันที่ใหม่</p>
   </section>
 
   <!-- Submit -->
@@ -219,26 +269,144 @@ document.querySelectorAll('.leave-type-btn').forEach(btn => {
     btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
     btn.classList.add('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
     document.getElementById('leave_type').value = btn.dataset.type;
+    updateEmergencyUI();
   });
 });
 
+// === Duration toggle ===
+function setActiveDuration(unit) {
+  document.getElementById('duration_unit').value = unit;
+  document.querySelectorAll('.duration-btn').forEach(b => {
+    if (b.dataset.duration === unit) {
+      b.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+      b.classList.add('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
+    } else {
+      b.classList.remove('bg-cyan-600', 'text-white', 'border-cyan-600', 'shadow-sm');
+      b.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+    }
+  });
+  const halfWrap = document.getElementById('half-day-wrap');
+  const hourWrap = document.getElementById('hour-wrap');
+  halfWrap.classList.toggle('hidden', unit !== 'half_day');
+  hourWrap.classList.toggle('hidden', unit !== 'hour');
+  // hidden + grid both apply via Tailwind; ensure grid layout when shown
+  hourWrap.classList.toggle('grid', unit === 'hour');
+
+  const endInput = document.getElementById('end_date');
+  if (unit === 'full_day') {
+    endInput.disabled = false;
+  } else {
+    // Lock end_date = start_date
+    endInput.value = document.getElementById('start_date').value;
+    endInput.disabled = true;
+  }
+  updateDayCount();
+  updateEmergencyUI();
+}
+document.querySelectorAll('.duration-btn').forEach(btn => {
+  btn.addEventListener('click', () => setActiveDuration(btn.dataset.duration));
+});
+setActiveDuration('full_day');
+['hour_start', 'hour_end', 'half_day_period'].forEach(id =>
+  document.getElementById(id).addEventListener('change', updateEmergencyUI));
+
 // === Day count ===
 function updateDayCount() {
+  const out = document.getElementById('day-count');
+  const unit = document.getElementById('duration_unit').value;
   const s = document.getElementById('start_date').value;
   const e = document.getElementById('end_date').value;
-  const out = document.getElementById('day-count');
+
+  if (unit === 'half_day') {
+    out.textContent = s ? 'รวม 0.5 วัน' : '';
+    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em] mt-4';
+    return;
+  }
+  if (unit === 'hour') {
+    const hs = document.getElementById('hour_start').value;
+    const he = document.getElementById('hour_end').value;
+    if (!s || !hs || !he) { out.textContent = ''; return; }
+    const mins = (toMin(he) - toMin(hs));
+    if (mins <= 0) {
+      out.textContent = 'เวลาจบต้องมากกว่าเวลาเริ่ม';
+      out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em] mt-4';
+    } else {
+      const dEq = (mins / 60 / 8).toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+      out.textContent = `รวม ${mins / 60} ชม. (${dEq} วัน)`;
+      out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em] mt-4';
+    }
+    return;
+  }
+  // full_day
   if (!s || !e) { out.textContent = ''; return; }
   const days = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
   if (days < 1) {
     out.textContent = 'วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม';
-    out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em]';
+    out.className = 'text-sm font-semibold text-red-600 min-h-[1.25em] mt-4';
   } else {
     out.textContent = `รวม ${days} วัน`;
-    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em]';
+    out.className = 'text-sm font-semibold text-cyan-700 min-h-[1.25em] mt-4';
   }
 }
-document.getElementById('start_date').addEventListener('change', updateDayCount);
-document.getElementById('end_date').addEventListener('change', updateDayCount);
+function toMin(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return h * 60 + m;
+}
+document.getElementById('start_date').addEventListener('change', () => {
+  const unit = document.getElementById('duration_unit').value;
+  if (unit !== 'full_day') {
+    document.getElementById('end_date').value = document.getElementById('start_date').value;
+  }
+  updateDayCount(); updateEmergencyUI();
+});
+document.getElementById('end_date').addEventListener('change', () => { updateDayCount(); updateEmergencyUI(); });
+
+// === Emergency check (mirrors backend _evaluateEmergency_) ===
+const SICK_ADV_HOURS = 1;
+const PERSONAL_ADV_DAYS = 3;
+function evaluateEmergencyClient() {
+  const type = document.getElementById('leave_type').value;
+  const startDate = document.getElementById('start_date').value;
+  if (!type || !startDate) return { state: 'idle' };
+  const unit = document.getElementById('duration_unit').value;
+  const period = document.getElementById('half_day_period').value;
+  const hStart = document.getElementById('hour_start').value;
+
+  const now = new Date();
+  let meetsAdvance;
+  if (type === 'sick') {
+    const workStart =
+      unit === 'hour' ? (hStart || '09:00') :
+      unit === 'half_day' && period === 'afternoon' ? '13:00' :
+      '09:00';
+    const [h, m] = workStart.split(':').map(Number);
+    const startDt = new Date(startDate + 'T00:00:00');
+    startDt.setHours(h, m, 0, 0);
+    meetsAdvance = (startDt - now) >= SICK_ADV_HOURS * 3600 * 1000;
+  } else {
+    const startMid = new Date(startDate + 'T00:00:00');
+    const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = (startMid - todayMid) / (24 * 3600 * 1000);
+    meetsAdvance = diffDays >= PERSONAL_ADV_DAYS;
+  }
+  if (meetsAdvance) return { state: 'ok' };
+
+  const canBeEmergency = type === 'sick' || type === 'personal';
+  return canBeEmergency ? { state: 'emergency_needed' } : { state: 'rejected_late' };
+}
+function updateEmergencyUI() {
+  const r = evaluateEmergencyClient();
+  const emergencyWrap = document.getElementById('emergency-wrap');
+  const lateWrap = document.getElementById('late-notice-wrap');
+  const checkbox = document.getElementById('is_emergency');
+
+  emergencyWrap.classList.toggle('hidden', r.state !== 'emergency_needed');
+  lateWrap.classList.toggle('hidden', r.state !== 'rejected_late');
+  if (r.state !== 'emergency_needed') checkbox.checked = false;
+}
+document.getElementById('is_emergency').addEventListener('change', () => {});
+// Initial paint
+updateEmergencyUI();
 
 // === Evidence type → toggle URL field + pending checkbox ===
 function updateEvidenceUI() {
@@ -275,14 +443,28 @@ document.getElementById('leave-form').addEventListener('submit', async (e) => {
 
   const evidenceType = document.getElementById('evidence_type').value;
   const evidencePending = document.getElementById('evidence_pending').checked;
+  const unit = document.getElementById('duration_unit').value;
+  const halfPeriod = document.getElementById('half_day_period').value;
+  const hourStart = document.getElementById('hour_start').value;
+  const hourEnd   = document.getElementById('hour_end').value;
+
+  // For half/hour mode end_date is locked to start_date
+  const startDate = document.getElementById('start_date').value;
+  const endDate   = unit === 'full_day' ? document.getElementById('end_date').value : startDate;
+
   const data = {
     leave_type: document.getElementById('leave_type').value,
-    start_date: document.getElementById('start_date').value,
-    end_date:   document.getElementById('end_date').value,
+    start_date: startDate,
+    end_date:   endDate,
     reason:     document.getElementById('reason').value,
     evidence_type: evidenceType,
     evidence_pending: evidenceType !== 'none' && evidencePending,
     evidence_url: (evidenceType === 'none' || evidencePending) ? '' : document.getElementById('evidence_url').value,
+    duration_unit: unit,
+    half_day_period: unit === 'half_day' ? halfPeriod : '',
+    hour_start: unit === 'hour' ? hourStart : '',
+    hour_end:   unit === 'hour' ? hourEnd   : '',
+    is_emergency: document.getElementById('is_emergency').checked,
   };
 
   if (!data.leave_type) { setStatus('กรุณาเลือกประเภทการลา', 'error'); return; }
@@ -291,8 +473,19 @@ document.getElementById('leave-form').addEventListener('submit', async (e) => {
     document.getElementById('reason').focus();
     return;
   }
-  if (new Date(data.end_date) < new Date(data.start_date)) {
+  if (unit === 'hour') {
+    if (!hourStart || !hourEnd) { setStatus('กรุณาระบุเวลาเริ่ม/จบ', 'error'); return; }
+    if (toMin(hourEnd) <= toMin(hourStart)) { setStatus('เวลาจบต้องมากกว่าเวลาเริ่ม', 'error'); return; }
+  }
+  if (unit === 'full_day' && new Date(data.end_date) < new Date(data.start_date)) {
     setStatus('วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่ม', 'error'); return;
+  }
+  const ev = evaluateEmergencyClient();
+  if (ev.state === 'rejected_late') {
+    setStatus('ลาประเภทนี้ต้องส่งล่วงหน้า — กรุณาเลือกวันที่ใหม่', 'error'); return;
+  }
+  if (ev.state === 'emergency_needed' && !data.is_emergency) {
+    setStatus('กรุณาติ๊กยืนยันการลาฉุกเฉิน', 'error'); return;
   }
 
   btn.disabled = true;

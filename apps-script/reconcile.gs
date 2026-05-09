@@ -25,16 +25,38 @@
  * @param {string} [payload.evidence_url]
  * @param {string} [payload.evidence_type] — none | medical_cert | appointment | receipt | photo | chat_screenshot | other
  * @param {boolean} [payload.evidence_pending] — true if employee will submit evidence later
+ * @param {string} [payload.duration_unit] — full_day (default) | half_day | hour
+ * @param {string} [payload.half_day_period] — morning | afternoon (required when duration_unit=half_day)
+ * @param {string} [payload.hour_start] — HH:mm (required when duration_unit=hour)
+ * @param {string} [payload.hour_end] — HH:mm (required when duration_unit=hour)
+ * @param {boolean} [payload.is_emergency] — set true when employee acknowledges advance-notice rule is bypassed
  */
 function submitLeave(payload, ctx) {
   const { start_date, end_date, leave_type, reason, evidence_url } = payload;
   const evidenceType = payload.evidence_type || 'none';
   const evidencePending = evidenceType !== 'none' && !!payload.evidence_pending;
+  const durationUnit = payload.duration_unit || 'full_day';
+  const halfDayPeriod = durationUnit === 'half_day' ? (payload.half_day_period || '') : '';
+  const hourStart = durationUnit === 'hour' ? String(payload.hour_start || '') : '';
+  const hourEnd   = durationUnit === 'hour' ? String(payload.hour_end   || '') : '';
   if (!start_date || !end_date || !leave_type) {
     throw new Error('missing_fields');
   }
   if (!reason || String(reason).trim().length < 3) {
     throw new Error('reason_required');
+  }
+  if (!['full_day', 'half_day', 'hour'].includes(durationUnit)) {
+    throw new Error('invalid_duration_unit');
+  }
+  if (durationUnit === 'half_day' && !['morning', 'afternoon'].includes(halfDayPeriod)) {
+    throw new Error('half_day_period_required');
+  }
+  if (durationUnit === 'hour') {
+    if (!_isHHmm_(hourStart) || !_isHHmm_(hourEnd)) throw new Error('hour_format_invalid');
+    if (_minutesOf_(hourEnd) <= _minutesOf_(hourStart)) throw new Error('hour_end_must_be_after_start');
+  }
+  if (durationUnit !== 'full_day' && start_date !== end_date) {
+    throw new Error('half_or_hour_must_be_single_day');
   }
 
   const dates = [];
@@ -47,6 +69,29 @@ function submitLeave(payload, ctx) {
   if (dates.length === 0 || dates.length > 31) {
     throw new Error('invalid_date_range');
   }
+
+  // === Days-equivalent per row ===
+  // full_day = 1.0; half_day = 0.5; hour = (end - start)/60/8
+  const perRowDaysEquivalent =
+    durationUnit === 'full_day' ? 1.0 :
+    durationUnit === 'half_day' ? 0.5 :
+    Math.round(((_minutesOf_(hourEnd) - _minutesOf_(hourStart)) / 60 / 8) * 1000) / 1000;
+  const totalDaysEquivalent = perRowDaysEquivalent * dates.length;
+
+  // === Advance notice + emergency check ===
+  const emergencyDecision = _evaluateEmergency_({
+    leave_type,
+    durationUnit,
+    halfDayPeriod,
+    hourStart,
+    startDate: start_date,
+    payloadIsEmergency: !!payload.is_emergency,
+    now: new Date(),
+  });
+  if (emergencyDecision.reject) {
+    throw new Error(emergencyDecision.error);
+  }
+  const isEmergency = emergencyDecision.isEmergency;
 
   // === Cut-off check ===
   // Check the EARLIEST date in the request — if any falls in a closed period, it's backdated
@@ -67,7 +112,8 @@ function submitLeave(payload, ctx) {
   }
 
   // === Determine required approval levels based on the rule ===
-  const days = dates.length;
+  // Use ceil(total days_equivalent) so half/hour leaves count as 1 day for rule lookup
+  const days = Math.max(1, Math.ceil(totalDaysEquivalent));
   const requiredLevels = determineRequiredLevels(leave_type, days);
   const approvalState = buildInitialApprovalState(ctx.empCode, requiredLevels);
 
@@ -101,6 +147,12 @@ function submitLeave(payload, ctx) {
     evidence_url: evidencePending ? '' : (evidence_url || ''),
     evidence_type: evidenceType,
     evidence_pending: evidencePending ? 'TRUE' : 'FALSE',
+    duration_unit: durationUnit,
+    half_day_period: halfDayPeriod,
+    hour_start: hourStart,
+    hour_end: hourEnd,
+    days_equivalent: perRowDaysEquivalent,
+    is_emergency: isEmergency ? 'TRUE' : 'FALSE',
   }));
 
   appendRows_(publicSs, 'Leave_Records', rows);
@@ -136,6 +188,7 @@ function submitLeave(payload, ctx) {
       reason: reason || '-',
       requiredLevels,
       isBackdated,
+      isEmergency,
       stats,
     });
   } catch (e) {
@@ -151,6 +204,64 @@ function submitLeave(payload, ctx) {
     is_backdated: isBackdated,
     backdated_reason: isBackdated ? cutoffCheck.reason : null,
   };
+}
+
+// HH:mm parse helpers — used by half/hour leave mode
+function _isHHmm_(s) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s));
+}
+function _minutesOf_(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Decide whether a leave submission is on time, requires emergency mode,
+ * or must be rejected outright.
+ *
+ * - sick: needs LEAVE_SICK_MIN_ADVANCE_HOURS hours before work-start time
+ *   (work-start: 09:00 full/morning, 13:00 afternoon, hour_start for hour mode)
+ * - personal: needs LEAVE_PERSONAL_MIN_ADVANCE_DAYS days before start_date
+ * - vacation/unpaid/maternity: needs same days as personal — NO emergency override
+ *
+ * Returns { isEmergency, reject, error }.
+ */
+function _evaluateEmergency_({ leave_type, durationUnit, halfDayPeriod, hourStart, startDate, payloadIsEmergency, now }) {
+  const sickAdvanceHours = Number(getSetting_('LEAVE_SICK_MIN_ADVANCE_HOURS', 1));
+  const personalAdvanceDays = Number(getSetting_('LEAVE_PERSONAL_MIN_ADVANCE_DAYS', 3));
+
+  let meetsAdvance;
+  if (leave_type === 'sick') {
+    // Compute the moment work would start for this leave
+    const workStartHHmm =
+      durationUnit === 'hour' ? hourStart :
+      durationUnit === 'half_day' && halfDayPeriod === 'afternoon' ? '13:00' :
+      '09:00';
+    const [h, m] = workStartHHmm.split(':').map(Number);
+    const startDt = new Date(startDate + 'T00:00:00');
+    startDt.setHours(h, m, 0, 0);
+    const diffMs = startDt.getTime() - now.getTime();
+    meetsAdvance = diffMs >= sickAdvanceHours * 3600 * 1000;
+  } else {
+    // Day-level rule for personal/vacation/unpaid/maternity
+    const startMidnight = new Date(startDate + 'T00:00:00');
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = (startMidnight.getTime() - todayMidnight.getTime()) / (24 * 3600 * 1000);
+    meetsAdvance = diffDays >= personalAdvanceDays;
+  }
+
+  if (meetsAdvance) {
+    return { isEmergency: false, reject: false };
+  }
+
+  const canBeEmergency = leave_type === 'sick' || leave_type === 'personal';
+  if (!canBeEmergency) {
+    return { reject: true, error: 'advance_notice_required' };
+  }
+  if (!payloadIsEmergency) {
+    return { reject: true, error: 'advance_notice_required' };
+  }
+  return { isEmergency: true, reject: false };
 }
 
 /**

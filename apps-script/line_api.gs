@@ -250,7 +250,16 @@ function sendApprovalFlex(approverUserId, req) {
     _flexRow('วันที่', req.date || '-'),
   ];
   if (req.isLeave) {
-    bodyContents.push(_flexRow('ประเภท', req.leaveType || '-'));
+    const leaveTypeLabels = {
+      sick: 'ลาป่วย',
+      personal: 'ลากิจ',
+      vacation: 'พักร้อน',
+      unpaid: 'ลาไม่รับเงิน',
+      maternity: 'ลาคลอด',
+    };
+    const baseTypeLabel = leaveTypeLabels[req.leaveType] || req.leaveType || '-';
+    const typeLabel = req.isEmergency ? `${baseTypeLabel} (ฉุกเฉิน)` : baseTypeLabel;
+    bodyContents.push(_flexRow('ประเภท', typeLabel));
     bodyContents.push(_flexRow('เหตุผล', req.reason || '-'));
   } else {
     // OT: type + time + reason

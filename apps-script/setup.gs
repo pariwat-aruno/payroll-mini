@@ -126,7 +126,10 @@ const PUBLIC_TABS = [
               'level_2_status', 'level_2_approver', 'level_2_at',
               'level_3_status', 'level_3_approver', 'level_3_at',
               'final_approved_at', 'is_backdated', 'evidence_url',
-              'evidence_type', 'evidence_pending'],
+              'evidence_type', 'evidence_pending',
+              'duration_unit', 'half_day_period',
+              'hour_start', 'hour_end', 'days_equivalent',
+              'is_emergency'],
     note: '1 row = 1 day. A 3-day leave creates 3 rows but shares request_group_id. ' +
           'required_levels = 1/2/3 derived from Approval_Rules at submit time. ' +
           'status = pending_L1 | pending_L2 | pending_L3 | approved | rejected | cancelled',
@@ -311,6 +314,10 @@ function _seedSettings(ss) {
      'Tolerance when matching actual OT minutes vs requested OT minutes.'],
     ['BACKDATED_REQUIRES_OWNER', 'true',
      'If true, only owner can submit backdated leave/OT after cutoff.'],
+    ['LEAVE_PERSONAL_MIN_ADVANCE_DAYS', '3',
+     'Minimum advance notice (days) for personal/vacation/unpaid leave. Sick uses LEAVE_SICK_MIN_ADVANCE_HOURS.'],
+    ['LEAVE_SICK_MIN_ADVANCE_HOURS', '1',
+     'Minimum advance notice (hours) for sick leave before work-start time. Below this requires is_emergency=true.'],
   ];
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
