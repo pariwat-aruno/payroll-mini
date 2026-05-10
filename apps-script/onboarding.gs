@@ -175,6 +175,14 @@ function pairEmployee(payload, ctx) {
     after: { user_id: ctx.userId, display_name: emp.first_name + ' ' + emp.last_name },
   });
 
+  // Auto-switch rich menu from Onboarding → Paired (best-effort, never fails the pair)
+  try {
+    const pairedMenuId = PropertiesService.getScriptProperties().getProperty('RICHMENU_PAIRED_ID');
+    if (pairedMenuId) assignRichMenu_(ctx.userId, pairedMenuId);
+  } catch (e) {
+    console.error('rich menu switch failed: ' + e);
+  }
+
   return {
     emp_code: empCodeInput,
     full_name: `${emp.first_name} ${emp.last_name}`.trim(),

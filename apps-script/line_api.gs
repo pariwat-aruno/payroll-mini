@@ -160,6 +160,68 @@ function pushText(userId, text) {
   });
 }
 
+/* ============================================================
+ * Rich Menu management
+ * ============================================================ */
+
+/**
+ * Link a rich menu to a specific user. Use after pairEmployee succeeds
+ * to switch from the onboarding menu to the paired menu.
+ *
+ * @param {string} userId
+ * @param {string} richMenuId  — leave empty to unlink (revert to default)
+ */
+function assignRichMenu_(userId, richMenuId) {
+  if (!userId) return;
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ACCESS_TOKEN');
+  if (!token) return;
+
+  try {
+    if (!richMenuId) {
+      UrlFetchApp.fetch(`https://api.line.me/v2/bot/user/${userId}/richmenu`, {
+        method: 'delete',
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true,
+      });
+      return;
+    }
+    const res = UrlFetchApp.fetch(
+      `https://api.line.me/v2/bot/user/${userId}/richmenu/${richMenuId}`,
+      {
+        method: 'post',
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true,
+      }
+    );
+    if (res.getResponseCode() >= 400) {
+      console.error('assignRichMenu failed: ' + res.getContentText());
+    }
+  } catch (e) {
+    console.error('assignRichMenu exception: ' + e);
+  }
+}
+
+/**
+ * Admin helper — run once from the editor to discover rich menu IDs,
+ * then paste them into Script Properties (RICHMENU_PAIRED_ID, etc).
+ */
+function listRichMenus() {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ACCESS_TOKEN');
+  if (!token) { Logger.log('LINE_CHANNEL_ACCESS_TOKEN not set'); return; }
+  const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/richmenu/list', {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  const body = JSON.parse(res.getContentText());
+  const list = body.richmenus || [];
+  Logger.log(`Found ${list.length} rich menus:`);
+  list.forEach(m => Logger.log(`  ${m.name || '(no name)'} → ${m.richMenuId}`));
+  Logger.log('\nNext: Project Settings → Script Properties → add');
+  Logger.log('  RICHMENU_PAIRED_ID  = <id of "Payroll Menu">');
+  Logger.log('  (default Onboarding menu is set in LINE OA Manager — no property needed)');
+  return list;
+}
+
 /**
  * Push a Flex Message to a LINE userId.
  *
