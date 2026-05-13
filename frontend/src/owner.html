@@ -87,7 +87,8 @@ const Liff = window.LiffBridge;
 const Api  = window.PayrollApi;
 
 const params = new URLSearchParams(window.location.search);
-const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+// Owner.html has its own dedicated LIFF (Endpoint URL points straight here)
+const LIFF_ID = params.get('liffId') || '2010019987-GnIMAEFB';
 
 let userIdToken = null;
 
