@@ -202,6 +202,112 @@ function assignRichMenu_(userId, richMenuId) {
 }
 
 /**
+ * Recreate the paired rich menu with 4 buttons:
+ *   สแกนหน้า · ลางาน · OT · เมนูทั้งหมด
+ *
+ * Run from the Apps Script editor any time you want to refresh the image or
+ * tap actions. The function fetches the image from the Pages site
+ * (frontend/src/richmenu-paired-4btn.png) — override by setting Script
+ * Property RICHMENU_IMAGE_URL.
+ *
+ * After success: RICHMENU_PAIRED_ID is updated and every row in LINE_User_Map
+ * is reassigned to the new menu so existing users see it immediately.
+ */
+function setupPairedRichMenu4() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('LINE_CHANNEL_ACCESS_TOKEN');
+  if (!token) throw new Error('LINE_CHANNEL_ACCESS_TOKEN not set');
+
+  const liffId = props.getProperty('LIFF_ID') || '2010019987-1USGaEEO';
+  const baseLiff = `https://liff.line.me/${liffId}`;
+  const imageUrl = props.getProperty('RICHMENU_IMAGE_URL')
+    || 'https://pariwat-aruno.github.io/payroll-mini/richmenu-paired-4btn.png';
+
+  const config = {
+    size: { width: 2500, height: 843 },
+    selected: false,
+    name: 'Payroll Paired 4btn',
+    chatBarText: 'เมนู',
+    areas: [
+      { bounds: { x: 0,    y: 0, width: 625, height: 843 },
+        action: { type: 'uri', label: 'สแกนหน้า',     uri: `${baseLiff}/checkin.html` } },
+      { bounds: { x: 625,  y: 0, width: 625, height: 843 },
+        action: { type: 'uri', label: 'ลางาน',        uri: `${baseLiff}/leave.html` } },
+      { bounds: { x: 1250, y: 0, width: 625, height: 843 },
+        action: { type: 'uri', label: 'OT',           uri: `${baseLiff}/ot.html` } },
+      { bounds: { x: 1875, y: 0, width: 625, height: 843 },
+        action: { type: 'uri', label: 'เมนูทั้งหมด',   uri: `${baseLiff}/index.html` } },
+    ],
+  };
+
+  // 1. Create menu config
+  const createRes = UrlFetchApp.fetch('https://api.line.me/v2/bot/richmenu', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify(config),
+    muteHttpExceptions: true,
+  });
+  if (createRes.getResponseCode() >= 400) {
+    throw new Error('richmenu_create_failed: ' + createRes.getContentText());
+  }
+  const newId = JSON.parse(createRes.getContentText()).richMenuId;
+  Logger.log('Created richmenu: ' + newId);
+
+  // 2. Upload background image
+  const imgBlob = UrlFetchApp.fetch(imageUrl, { muteHttpExceptions: true }).getBlob();
+  const uploadRes = UrlFetchApp.fetch(
+    `https://api-data.line.me/v2/bot/richmenu/${newId}/content`,
+    {
+      method: 'post',
+      contentType: 'image/png',
+      headers: { Authorization: 'Bearer ' + token },
+      payload: imgBlob.getBytes(),
+      muteHttpExceptions: true,
+    }
+  );
+  if (uploadRes.getResponseCode() >= 400) {
+    // Roll back the empty menu we just created
+    UrlFetchApp.fetch(`https://api.line.me/v2/bot/richmenu/${newId}`, {
+      method: 'delete',
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true,
+    });
+    throw new Error('richmenu_image_upload_failed: ' + uploadRes.getContentText());
+  }
+  Logger.log('Uploaded image to ' + newId);
+
+  // 3. Delete old menu (if any)
+  const oldId = props.getProperty('RICHMENU_PAIRED_ID');
+  if (oldId && oldId !== newId) {
+    UrlFetchApp.fetch(`https://api.line.me/v2/bot/richmenu/${oldId}`, {
+      method: 'delete',
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true,
+    });
+    Logger.log('Deleted old menu: ' + oldId);
+  }
+
+  // 4. Save new ID
+  props.setProperty('RICHMENU_PAIRED_ID', newId);
+  Logger.log('RICHMENU_PAIRED_ID = ' + newId);
+
+  // 5. Reassign every paired user so they see the new menu immediately
+  const secSs = getSecretSheet_();
+  const map = readTab_(secSs, 'LINE_User_Map');
+  let count = 0;
+  map.forEach(r => {
+    if (r.line_user_id) {
+      assignRichMenu_(r.line_user_id, newId);
+      count++;
+    }
+  });
+  Logger.log(`Reassigned ${count} paired user(s) to new menu.`);
+
+  return newId;
+}
+
+/**
  * Admin helper — run once from the editor to discover rich menu IDs,
  * then paste them into Script Properties (RICHMENU_PAIRED_ID, etc).
  */
