@@ -409,11 +409,17 @@ function _hhmmToMin_(s) {
 }
 
 /**
- * Normalize a cell that may contain "HH:mm" text OR a Date object that
- * Sheets implicitly coerced from a time string. Always returns "HH:mm".
+ * Normalize a cell that may contain "HH:mm" text, a Date object, or a
+ * stringified Date ("Sun Dec 31 1899 06:27:04 GMT+0642"). Always returns "HH:mm".
  */
 function _fmtTimeCell_(v) {
-  if (!v) return '';
+  if (v === '' || v === null || v === undefined) return '';
   if (v instanceof Date) return Utilities.formatDate(v, 'GMT+7', 'HH:mm');
-  return String(v).trim().substring(0, 5);
+  const s = String(v).trim();
+  if (!s) return '';
+  if (/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5, '0');
+  // Try to parse anything else as a Date — handles stringified Date dumps
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return Utilities.formatDate(d, 'GMT+7', 'HH:mm');
+  return s.substring(0, 5);
 }
