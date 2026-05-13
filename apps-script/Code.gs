@@ -372,6 +372,12 @@ function _handleTextMessage(event) {
   // treat this message as the info-request message and dispatch.
   if (consumePendingInfoRequest(userId, text)) return;
 
+  // Open command (anyone can use) — surface the pair LIFF link.
+  if (/^\/?\s*(ลงทะเบียน|register)\s*$/i.test(text)) {
+    _handleRegisterCommand_(userId);
+    return;
+  }
+
   const empCode = lookupEmpCodeByUserId(userId);
   // Only owner has chat commands; everyone else is silent.
   if (empCode !== 'OWNER') return;
@@ -422,6 +428,28 @@ function _handleTextMessage(event) {
     );
     return;
   }
+}
+
+/**
+ * Reply with the pair.html LIFF link, or note if the user is already paired.
+ */
+function _handleRegisterCommand_(userId) {
+  const existingEmp = lookupEmpCodeByUserId(userId);
+  if (existingEmp) {
+    pushLineMessage(userId,
+      `บัญชี LINE ของคุณผูกอยู่แล้ว (รหัส ${existingEmp})\n` +
+      `ใช้งานผ่าน rich menu ด้านล่างได้เลย`);
+    return;
+  }
+  const liffId = PropertiesService.getScriptProperties().getProperty('LIFF_ID')
+                 || '2010019987-1USGaEEO';
+  const pairUrl = `https://liff.line.me/${liffId}/pair.html`;
+  pushLineMessage(userId,
+    '📝 เริ่มลงทะเบียนพนักงานใหม่\n\n' +
+    'แตะลิงก์ด้านล่างเพื่อผูกบัญชี:\n' +
+    pairUrl + '\n\n' +
+    'กรอกรหัสพนักงาน + รหัสผูก 6 หลักที่ HR ส่งให้\n' +
+    '(รหัสมีอายุ 24 ชั่วโมง)');
 }
 
 function _handlePostback(event) {
