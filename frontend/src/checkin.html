@@ -193,11 +193,14 @@ document.getElementById('btn-external').addEventListener('click', openExternal);
 async function startCheckin() {
   const btn = document.getElementById('btn-checkin');
   btn.disabled = true;
-  setStatus('กำลังขอตำแหน่ง...');
+  setStatus('กำลังเปิดกล้อง...');
   try {
+    // Camera FIRST — iOS only honors getUserMedia inside the user gesture.
+    // GPS prompts can come up later in any context, so we ask after.
+    await openCam();
+    setStatus('กำลังขอตำแหน่ง...');
     coords = await getCoords();
     setStatus('');
-    await openCam();
   } catch (err) {
     setStatus(err.message, 'error');
     btn.disabled = false;
