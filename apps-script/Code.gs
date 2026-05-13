@@ -103,6 +103,15 @@ function doGet(e) {
 function _getHandler(action) {
   const handlers = {
     ping: () => ({ pong: true, time: new Date().toISOString() }),
+    pingDrive: () => {
+      const email = Session.getEffectiveUser().getEmail();
+      try {
+        const f = DriveApp.createFolder('_payroll_pingDrive_' + Date.now());
+        return { ok: true, runs_as: email, folder_url: f.getUrl(), folder_id: f.getId() };
+      } catch (e) {
+        return { ok: false, runs_as: email, error: String(e && e.message || e) };
+      }
+    },
     getMe: handleGetMe,
     invalidateCache: handleInvalidateCache,
 

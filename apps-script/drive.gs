@@ -112,29 +112,73 @@ function uploadSelfieBase64_(base64, kind, empCode) {
 
   const folder = _resolveCheckinFolder_();
 
+  // Strip data URL prefix if frontend forgot.
+  let raw = base64;
+  let mimeType = 'image/jpeg';
+  const m = base64.match(/^data:([^;]+);base64,(.+)$/);
+  if (m) { mimeType = m[1]; raw = m[2]; }
+
+  let bytes;
+  try { bytes = Utilities.base64Decode(raw); }
+  catch (e) { throw new Error('invalid_base64'); }
+
   const stamp = formatDatetime_(new Date()).replace(/[: ]/g, '-');
   const filename = `${kind}_${empCode || 'unknown'}_${stamp}.jpg`;
-  const bytes = Utilities.base64Decode(base64);
-  const blob = Utilities.newBlob(bytes, 'image/jpeg', filename);
+  const blob = Utilities.newBlob(bytes, mimeType, filename);
   const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  // Workspace admins commonly block "anyone with link" sharing — the file
+  // still uploads fine, we just can't make it public. Don't fail the whole
+  // upload because of this; the Flex card uses the thumbnail endpoint which
+  // works even on unshared files.
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    console.warn('setSharing failed (file uploaded but not public): ' + e);
+  }
   return file.getUrl();
+}
+
+/**
+ * Convert a Drive file URL (HTML preview page) into a direct image URL
+ * suitable for LINE Flex hero.url. The thumbnail endpoint returns
+ * Content-Type: image/jpeg even when the file isn't publicly shared.
+ */
+function driveUrlToThumbnail_(url, size) {
+  if (!url) return '';
+  const m = String(url).match(/\/file\/d\/([^\/\?]+)/);
+  if (!m) return url;
+  return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w' + (size || 800);
+}
+
+/**
+ * Run this from the editor to test Drive access + force scope auth.
+ * Logs:
+ *   - which Google account the script runs as
+ *   - whether DriveApp.createFolder works
+ *   - the URL of the test folder it creates (delete manually if not needed)
+ */
+function testDriveAccess() {
+  const email = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail();
+  Logger.log('Running as: ' + email);
+  try {
+    const folder = DriveApp.createFolder('_payroll_drive_test_' + Date.now());
+    Logger.log('OK — Drive scope works. Folder URL: ' + folder.getUrl());
+    Logger.log('You can delete this test folder manually if you like.');
+  } catch (e) {
+    Logger.log('FAIL — ' + (e.message || e));
+    Logger.log('Open Run → setupPairedRichMenu4 (or any function) → Review permissions → make sure "See, edit, create, and delete your Google Drive files" is in the consent screen.');
+  }
 }
 
 function _resolveCheckinFolder_() {
   const folderId = String(getSetting_('CHECKIN_DRIVE_FOLDER_ID', '')).trim();
-  if (folderId) {
-    try { return DriveApp.getFolderById(folderId); }
-    catch (e) {
-      console.warn('checkin folder not accessible (' + folderId + ') — falling back to auto-create');
-    }
+  if (!folderId) throw new Error('checkin_drive_folder_not_configured');
+  try {
+    return DriveApp.getFolderById(folderId);
+  } catch (e) {
+    throw new Error('checkin_drive_folder_not_accessible: ' + folderId);
   }
-  // Auto-create a folder in the script owner's My Drive and persist its ID.
-  const folder = DriveApp.createFolder('Payroll Checkin Selfies (auto)');
-  const newId = folder.getId();
-  _writeSetting_('CHECKIN_DRIVE_FOLDER_ID', newId);
-  console.info('Created and saved CHECKIN_DRIVE_FOLDER_ID = ' + newId);
-  return folder;
 }
 
 function _writeSetting_(key, value) {

@@ -694,20 +694,22 @@ function sendCheckinApprovalFlex(approverUserId, req) {
     });
   }
 
-  // Thumbnail row — selfie this punch + reference selfie side by side if both available
+  // Thumbnail row — selfie this punch + reference selfie side by side if both available.
+  // Use Drive thumbnail endpoint (direct JPEG) — works even when the file isn't shared anyone-with-link.
   const heroImgs = [];
-  if (req.selfieOutUrl || req.selfieInUrl) {
+  const punchSrc = req.selfieOutUrl || req.selfieInUrl;
+  if (punchSrc) {
     heroImgs.push({
       type: 'image',
-      url: req.selfieOutUrl || req.selfieInUrl,
+      url: driveUrlToThumbnail_(punchSrc, 800),
       size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
-      action: { type: 'uri', uri: req.selfieOutUrl || req.selfieInUrl },
+      action: { type: 'uri', uri: punchSrc },
     });
   }
   if (req.refSelfieUrl) {
     heroImgs.push({
       type: 'image',
-      url: req.refSelfieUrl,
+      url: driveUrlToThumbnail_(req.refSelfieUrl, 800),
       size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
       action: { type: 'uri', uri: req.refSelfieUrl },
     });
