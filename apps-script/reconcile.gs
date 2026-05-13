@@ -569,6 +569,9 @@ function submitOT(payload, ctx) {
   // Notify L1 approver via Flex
   try {
     const emp = _getEmployeeRow_(ctx.empCode);
+    // Pull rate + base from Salary_Master so the Flex (when sent to OWNER)
+    // can show hourly rate, hours, and total OT pay at a glance.
+    const salary = _otSalaryInfo_(ctx.empCode, date, ot_type, start_time, end_time, end_date);
     sendApprovalFlex(chain.l1, {
       id: otId,
       level: 1,
@@ -586,12 +589,56 @@ function submitOT(payload, ctx) {
       reason: String(reason).trim(),
       requiredLevels: 1,
       isBackdated,
+      salary,
     });
   } catch (e) {
     console.error('notify L1 approver (OT) failed: ' + e);
   }
 
   return { ot_id: otId, is_backdated: isBackdated };
+}
+
+/**
+ * Resolve the OT-relevant slice of Salary_Master for one request.
+ * Returns null if no active salary record so the Flex skips the money rows.
+ */
+function _otSalaryInfo_(empCode, date, otType, startTime, endTime, endDate) {
+  try {
+    const sal = findActiveRecord_(
+      readTab_(getSecretSheet_(), 'Salary_Master'), empCode, date);
+    if (!sal) return null;
+    const hours = _otHoursOf_(startTime, endTime, date, endDate);
+    let otRate = 0;
+    switch (otType) {
+      case 'rest':    otRate = Number(sal.ot_2_rate) || 0; break;
+      case 'holiday': otRate = Number(sal.ot_3_rate) || 0; break;
+      default:        otRate = Number(sal.ot_1_rate) || 0;
+    }
+    return {
+      baseSalary: Number(sal.base_salary) || 0,
+      dailyRate:  Number(sal.daily_rate)  || 0,
+      hourlyRate: Number(sal.hourly_rate) || 0,
+      otRate,
+      otHours: hours,
+      otAmount: Math.round(otRate * hours * 100) / 100,
+    };
+  } catch (e) {
+    console.error('_otSalaryInfo_ failed: ' + e);
+    return null;
+  }
+}
+
+function _otHoursOf_(startTime, endTime, startDate, endDate) {
+  const parse = s => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+  };
+  const s = parse(startTime);
+  const e = parse(endTime);
+  if (s < 0 || e < 0) return 0;
+  const overnight = endDate && startDate && endDate !== startDate;
+  const minutes = overnight ? (24 * 60 - s + e) : (e - s);
+  return Math.max(0, minutes / 60);
 }
 
 /**

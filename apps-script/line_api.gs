@@ -481,6 +481,28 @@ function sendApprovalFlex(approverUserId, req) {
       bodyContents.push(_flexRow('เวลา', timeLabel));
     }
     if (req.reason) bodyContents.push(_flexRow('เหตุผล', req.reason));
+
+    // Money rows — only render for OWNER recipients (privacy: HR-level
+    // approvers should not see salary even if they approve OT).
+    if (req.salary && lookupEmpCodeByUserId(approverUserId) === 'OWNER') {
+      const s = req.salary;
+      bodyContents.push({ type: 'separator', margin: 'md' });
+      bodyContents.push({
+        type: 'text', text: 'ค่าตอบแทน', size: 'xs', color: '#888888',
+        margin: 'md', weight: 'bold',
+      });
+      bodyContents.push(_flexRow('เงินเดือน',   _baht_(s.baseSalary) + '/เดือน'));
+      bodyContents.push(_flexRow('ค่าจ้าง/วัน',  _baht_(s.dailyRate)));
+      bodyContents.push(_flexRow('OT/ชม.',      _baht_(s.otRate)));
+      bodyContents.push(_flexRow('จำนวน',       (Math.round(s.otHours * 100) / 100) + ' ชม.'));
+      bodyContents.push({
+        type: 'box', layout: 'baseline', spacing: 'sm', margin: 'sm',
+        contents: [
+          { type: 'text', text: 'รวมจ่าย OT', color: '#0F5132', size: 'sm', flex: 2, weight: 'bold' },
+          { type: 'text', text: _baht_(s.otAmount), wrap: true, size: 'sm', flex: 5, weight: 'bold', color: '#0F5132' },
+        ],
+      });
+    }
   }
   if (req.stats) {
     bodyContents.push({ type: 'separator', margin: 'md' });
@@ -849,6 +871,11 @@ function sendDecisionAckFlex(userId, p) {
   }
 
   pushFlex(userId, title, flex);
+}
+
+function _baht_(n) {
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ฿';
 }
 
 function _flexRow(label, value) {
