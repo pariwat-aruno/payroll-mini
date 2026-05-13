@@ -93,6 +93,8 @@ function migrateSheets() {
       ['CHECKIN_GEOFENCE_LNG', '', 'Worksite longitude (decimal degrees).'],
       ['CHECKIN_GEOFENCE_RADIUS_M', '150', 'Allowed radius from worksite in meters.'],
       ['CHECKIN_DRIVE_FOLDER_ID', '', 'Drive folder ID for selfie check-in images.'],
+      ['WORK_DAY_START', '09:00', 'Normal work-day start (HH:mm) — used to auto-classify OT type.'],
+      ['WORK_DAY_END',   '18:00', 'Normal work-day end (HH:mm) — used to auto-classify OT type.'],
     ];
 
     const toAppend = desired.filter(row => !existingKeys.has(row[0]));

@@ -495,10 +495,13 @@ function _getLeaveStatsThisYear_(empCode) {
  * Submit an OT request from LIFF.
  */
 function submitOT(payload, ctx) {
-  const { date, start_time, end_time, ot_type, reason } = payload;
-  if (!date || !start_time || !end_time || !ot_type) {
+  const { date, start_time, end_time, reason } = payload;
+  if (!date || !start_time || !end_time) {
     throw new Error('missing_fields');
   }
+  // ot_type is now derived server-side from schedule + holiday calendar.
+  // Any value the frontend sent is treated as a fallback only if classification fails.
+  const ot_type = _classifyOtType_(ctx.empCode, date) || String(payload.ot_type || 'weekday');
   if (!reason || String(reason).trim().length < 3) {
     throw new Error('reason_required');
   }
@@ -666,6 +669,30 @@ function _otMonthlyAccumulated_(empCode, dateStr, sal) {
     holiday: buckets.holiday,
     total:   Math.round(total * 100) / 100,
   };
+}
+
+/**
+ * Decide OT pay class from the schedule + holiday calendar:
+ *   holiday — date is in Holiday_Calendar → 3× (ot_3_rate)
+ *   rest    — date is a non-work day per Work_Schedule bitmap → +1× (ot_2_rate)
+ *   weekday — normal work day → 1.5× (ot_1_rate)
+ */
+function _classifyOtType_(empCode, dateStr) {
+  const pubSs = getPublicSheet_();
+
+  // 1) Public holiday
+  const holidays = readTab_(pubSs, 'Holiday_Calendar');
+  if (holidays.some(h => formatDate_(h.date) === dateStr)) return 'holiday';
+
+  // 2) Work_Schedule bitmap (Mon=0 .. Sun=6 in the string)
+  const sched = findActiveRecord_(readTab_(pubSs, 'Work_Schedule'), empCode, dateStr);
+  const bitmap = String((sched && sched.work_days_bitmap) || '1111100');
+  const d = new Date(dateStr);
+  const idx = (d.getDay() + 6) % 7;
+  if (bitmap.charAt(idx) !== '1') return 'rest';
+
+  // 3) Otherwise a normal work day → weekday OT
+  return 'weekday';
 }
 
 function _otHoursOf_(startTime, endTime, startDate, endDate) {

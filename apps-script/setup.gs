@@ -381,6 +381,10 @@ function _seedSettings(ss) {
      'Allowed radius from worksite in meters. Check-ins beyond this are flagged (not blocked).'],
     ['CHECKIN_DRIVE_FOLDER_ID', '',
      'Drive folder ID for selfie check-in images. Reference selfies and daily check-in selfies go here.'],
+    ['WORK_DAY_START', '09:00',
+     'Normal work-day start time (HH:mm). Used by submitOT to auto-classify OT type when the requested window falls outside this range.'],
+    ['WORK_DAY_END', '18:00',
+     'Normal work-day end time (HH:mm). Used by submitOT to auto-classify OT type.'],
   ];
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
