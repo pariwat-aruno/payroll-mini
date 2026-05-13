@@ -468,9 +468,9 @@ function sendApprovalFlex(approverUserId, req) {
   } else {
     // OT: type + time + reason
     const otTypeMap = {
-      weekday: 'ล่วงเวลา (1.5×)',
-      rest:    'ทำงานวันหยุด (+1×)',
-      holiday: 'ล่วงเวลาในวันหยุด (3×)',
+      weekday: 'ล่วงเวลา',
+      rest:    'ทำงานวันหยุด',
+      holiday: 'ล่วงเวลาในวันหยุด',
     };
     bodyContents.push(_flexRow('ประเภท', otTypeMap[req.otType] || req.otType || req.leaveType || '-'));
     if (req.startTime || req.endTime) {
@@ -511,11 +511,11 @@ function sendApprovalFlex(approverUserId, req) {
           type: 'text', text: `OT สะสมเดือน ${m.period}`, size: 'xs', color: '#888888',
           margin: 'md', weight: 'bold',
         });
-        bodyContents.push(_flexRow('ล่วงเวลา (1.5×)',
+        bodyContents.push(_flexRow('ล่วงเวลา',
           `${(Math.round(m.weekday.hours * 10) / 10)} ชม. · ${_baht_(m.weekday.amount)}`));
         bodyContents.push(_flexRow('ทำงานวันหยุด',
           `${(Math.round(m.rest.hours * 10) / 10)} ชม. · ${_baht_(m.rest.amount)}`));
-        bodyContents.push(_flexRow('วันหยุดนักขัตฤกษ์',
+        bodyContents.push(_flexRow('ล่วงเวลาในวันหยุด',
           `${(Math.round(m.holiday.hours * 10) / 10)} ชม. · ${_baht_(m.holiday.amount)}`));
         bodyContents.push({
           type: 'box', layout: 'baseline', spacing: 'sm', margin: 'sm',

@@ -501,7 +501,8 @@ function submitOT(payload, ctx) {
   }
   // ot_type is now derived server-side from schedule + holiday calendar.
   // Any value the frontend sent is treated as a fallback only if classification fails.
-  const ot_type = _classifyOtType_(ctx.empCode, date) || String(payload.ot_type || 'weekday');
+  const ot_type = _classifyOtType_(ctx.empCode, date, start_time, end_time)
+                || String(payload.ot_type || 'weekday');
   if (!reason || String(reason).trim().length < 3) {
     throw new Error('reason_required');
   }
@@ -672,27 +673,34 @@ function _otMonthlyAccumulated_(empCode, dateStr, sal) {
 }
 
 /**
- * Decide OT pay class from the schedule + holiday calendar:
- *   holiday — date is in Holiday_Calendar → 3× (ot_3_rate)
- *   rest    — date is a non-work day per Work_Schedule bitmap → +1× (ot_2_rate)
- *   weekday — normal work day → 1.5× (ot_1_rate)
+ * Decide OT pay class from the schedule + holiday calendar + time-of-day:
+ *
+ *   weekday — normal work day, OT requested after WORK_DAY_END (or before _START)
+ *             → 1.5× (ot_1_rate) · ป้าย "ล่วงเวลา"
+ *   rest    — holiday/off day, OT window entirely within normal work hours
+ *             → +1× (ot_2_rate) · ป้าย "ทำงานวันหยุด"
+ *   holiday — holiday/off day, OT window extends beyond normal work hours
+ *             → 3× (ot_3_rate) · ป้าย "ล่วงเวลาในวันหยุด"
  */
-function _classifyOtType_(empCode, dateStr) {
+function _classifyOtType_(empCode, dateStr, startTime, endTime) {
   const pubSs = getPublicSheet_();
 
-  // 1) Public holiday
-  const holidays = readTab_(pubSs, 'Holiday_Calendar');
-  if (holidays.some(h => formatDate_(h.date) === dateStr)) return 'holiday';
-
-  // 2) Work_Schedule bitmap (Mon=0 .. Sun=6 in the string)
+  const isHoliday = readTab_(pubSs, 'Holiday_Calendar')
+    .some(h => formatDate_(h.date) === dateStr);
   const sched = findActiveRecord_(readTab_(pubSs, 'Work_Schedule'), empCode, dateStr);
   const bitmap = String((sched && sched.work_days_bitmap) || '1111100');
-  const d = new Date(dateStr);
-  const idx = (d.getDay() + 6) % 7;
-  if (bitmap.charAt(idx) !== '1') return 'rest';
+  const idx = (new Date(dateStr).getDay() + 6) % 7;
+  const isOffDay = isHoliday || bitmap.charAt(idx) !== '1';
 
-  // 3) Otherwise a normal work day → weekday OT
-  return 'weekday';
+  if (!isOffDay) return 'weekday';
+
+  // Off day — distinguish "normal-hours work" vs "OT on a holiday".
+  const wdStart = timeToMinutes_(getSetting_('WORK_DAY_START', '09:00'));
+  const wdEnd   = timeToMinutes_(getSetting_('WORK_DAY_END',   '18:00'));
+  const otStart = timeToMinutes_(startTime);
+  const otEnd   = timeToMinutes_(endTime);
+  if (otStart >= wdStart && otEnd <= wdEnd) return 'rest';
+  return 'holiday';
 }
 
 function _otHoursOf_(startTime, endTime, startDate, endDate) {
