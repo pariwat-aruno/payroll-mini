@@ -904,6 +904,7 @@ function sendCheckinReminderFlex(userId, p) {
   if (!userId) return;
   const liffId = PropertiesService.getScriptProperties().getProperty('LIFF_ID') || '2010019987-1USGaEEO';
   const base = `https://liff.line.me/${liffId}`;
+  const nowStr = Utilities.formatDate(new Date(), 'GMT+7', 'HH:mm');
   const title = `⏰ เลยเวลา${p.slotLabel || ''} แล้ว`;
   const flex = {
     type: 'bubble',
@@ -911,12 +912,14 @@ function sendCheckinReminderFlex(userId, p) {
       type: 'box', layout: 'vertical', contents: [
         { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: '#EA580C' },
         { type: 'separator', margin: 'md' },
+        { type: 'text', text: `ขณะนี้เวลา ${nowStr}`,
+          size: 'sm', wrap: true, margin: 'md', color: '#1F2937', weight: 'bold' },
         { type: 'text',
-          text: `เลยเวลาเข้างานปกติประมาณ ${p.minutesLate || 5} นาที — กรุณาสแกนหน้าด่วน`,
-          size: 'sm', wrap: true, margin: 'md', color: '#444444' },
+          text: `เลยเวลา${p.slotLabel || 'เข้างาน'}มาแล้ว ${p.minutesLate || 5} นาที`,
+          size: 'sm', wrap: true, margin: 'sm', color: '#444444' },
         { type: 'text',
-          text: 'ถ้าวันนี้ลา กดปุ่ม "แจ้งลางาน" ด้านล่างได้เลย',
-          size: 'xs', wrap: true, margin: 'sm', color: '#888888' },
+          text: 'หากอยู่ในที่ทำงานแล้วให้รีบกดสแกนหน้าด่วนเลยนะคะ',
+          size: 'sm', wrap: true, margin: 'sm', color: '#444444' },
       ],
     },
     footer: {
@@ -939,6 +942,7 @@ function sendEndOfDayFlex(userId) {
   if (!userId) return;
   const liffId = PropertiesService.getScriptProperties().getProperty('LIFF_ID') || '2010019987-1USGaEEO';
   const base = `https://liff.line.me/${liffId}`;
+  const nowStr = Utilities.formatDate(new Date(), 'GMT+7', 'HH:mm');
   const title = '⚠️ ถึงเวลาเลิกงานแล้ว';
   const flex = {
     type: 'bubble',
@@ -950,12 +954,17 @@ function sendEndOfDayFlex(userId) {
       type: 'box', layout: 'vertical', contents: [
         { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: '#92400E' },
         { type: 'separator', margin: 'md', color: '#F59E0B' },
-        { type: 'text',
-          text: 'พนักงานควรเก็บของออกจากออฟฟิศทันที',
+        { type: 'text', text: `ขณะเวลา ${nowStr}`,
           size: 'sm', wrap: true, margin: 'md', color: '#1F2937', weight: 'bold' },
-        { type: 'text',
-          text: 'หากจำเป็นต้องทำงานล่วงเวลา กรุณายื่นคำขอ OT ผ่านปุ่มล่าง',
+        { type: 'text', text: 'กรุณาเลิกงานได้แล้วค่ะ',
           size: 'sm', wrap: true, margin: 'sm', color: '#1F2937' },
+        { type: 'text',
+          text: 'หากต้องการทำ OT ให้ส่งคำขอทำ OT ก่อนเริ่มงาน',
+          size: 'sm', wrap: true, margin: 'md', color: '#1F2937' },
+        { type: 'separator', margin: 'md', color: '#F59E0B' },
+        { type: 'text',
+          text: 'หมายเหตุ: บริษัทฯ จะไม่รับผิดชอบใด ๆ ในกรณีที่พนักงานกดลงเวลาแล้วแต่ยังไม่กลับบ้าน หรือทำงานล่วงเวลาโดยไม่ส่งคำขออนุญาตก่อน',
+          size: 'xs', wrap: true, margin: 'md', color: '#7C2D12' },
       ],
     },
     footer: {
