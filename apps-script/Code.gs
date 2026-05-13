@@ -69,13 +69,15 @@ function doPost(e) {
     return _jsonResponse({ ok: true, data });
   } catch (err) {
     console.error(err);
+    const msg = String((err && err.message) || err);
     logAudit({
       action: 'HANDLER_ERROR',
       target_type: 'request',
       target_id: action,
-      reason: String(err),
+      reason: msg + (err && err.stack ? '\n' + err.stack : ''),
     });
-    return _jsonResponse({ ok: false, error: 'internal_error' });
+    // Surface the underlying message so the frontend can show something useful.
+    return _jsonResponse({ ok: false, error: msg || 'internal_error' });
   }
 }
 
