@@ -13,19 +13,29 @@ export async function startCamera(videoEl, facing = 'user') {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error('เบราว์เซอร์ไม่รองรับกล้อง');
   }
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: facing,
-      width:  { ideal: 1280 },
-      height: { ideal: 1280 },
-    },
-    audio: false,
-  });
-  videoEl.srcObject = stream;
-  videoEl.setAttribute('playsinline', '');
-  videoEl.muted = true;
-  await videoEl.play();
-  return stream;
+  // Try progressively looser constraints — LINE webviews often reject the
+  // strict facingMode + size combo and return a generic "internal error".
+  const attempts = [
+    { video: { facingMode: { exact: facing }, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false },
+    { video: { facingMode: facing }, audio: false },
+    { video: true, audio: false },
+  ];
+  let lastErr;
+  for (const c of attempts) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(c);
+      videoEl.srcObject = stream;
+      videoEl.setAttribute('playsinline', '');
+      videoEl.muted = true;
+      await videoEl.play();
+      return stream;
+    } catch (e) {
+      lastErr = e;
+      // Don't retry if user denied — escalate immediately
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e;
+    }
+  }
+  throw lastErr || new Error('camera unavailable');
 }
 
 export function captureFromVideo(videoEl, maxWidth = 1280, quality = 0.85) {
