@@ -621,11 +621,51 @@ function _otSalaryInfo_(empCode, date, otType, startTime, endTime, endDate) {
       otRate,
       otHours: hours,
       otAmount: Math.round(otRate * hours * 100) / 100,
+      thisMonth: _otMonthlyAccumulated_(empCode, date, sal),
     };
   } catch (e) {
     console.error('_otSalaryInfo_ failed: ' + e);
     return null;
   }
+}
+
+/**
+ * Sum approved OT_Requests for the employee in the same calendar month
+ * (Asia/Bangkok). Returns hours + baht per ot_type so the Flex can show
+ * "monthly so far" alongside the current request.
+ */
+function _otMonthlyAccumulated_(empCode, dateStr, sal) {
+  const period = periodOf_(dateStr);
+  const requests = readTab_(getPublicSheet_(), 'OT_Requests').filter(r =>
+    String(r.emp_code).trim().toUpperCase() === String(empCode).trim().toUpperCase() &&
+    String(r.status) === 'approved' &&
+    periodOf_(r.date) === period
+  );
+
+  const buckets = {
+    weekday: { hours: 0, rate: Number(sal.ot_1_rate) || 0 },
+    rest:    { hours: 0, rate: Number(sal.ot_2_rate) || 0 },
+    holiday: { hours: 0, rate: Number(sal.ot_3_rate) || 0 },
+  };
+  requests.forEach(r => {
+    const h = _otHoursOf_(r.start_time, r.end_time, r.date, r.end_date);
+    const b = buckets[r.ot_type] || buckets.weekday;
+    b.hours += h;
+  });
+
+  let total = 0;
+  Object.keys(buckets).forEach(k => {
+    buckets[k].amount = Math.round(buckets[k].hours * buckets[k].rate * 100) / 100;
+    total += buckets[k].amount;
+  });
+
+  return {
+    period,
+    weekday: buckets.weekday,
+    rest:    buckets.rest,
+    holiday: buckets.holiday,
+    total:   Math.round(total * 100) / 100,
+  };
 }
 
 function _otHoursOf_(startTime, endTime, startDate, endDate) {

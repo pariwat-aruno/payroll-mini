@@ -502,6 +502,29 @@ function sendApprovalFlex(approverUserId, req) {
           { type: 'text', text: _baht_(s.otAmount), wrap: true, size: 'sm', flex: 5, weight: 'bold', color: '#0F5132' },
         ],
       });
+
+      // Monthly accumulated (approved OTs in same calendar month)
+      if (s.thisMonth) {
+        const m = s.thisMonth;
+        bodyContents.push({ type: 'separator', margin: 'md' });
+        bodyContents.push({
+          type: 'text', text: `OT สะสมเดือน ${m.period}`, size: 'xs', color: '#888888',
+          margin: 'md', weight: 'bold',
+        });
+        bodyContents.push(_flexRow('ล่วงเวลา (1.5×)',
+          `${(Math.round(m.weekday.hours * 10) / 10)} ชม. · ${_baht_(m.weekday.amount)}`));
+        bodyContents.push(_flexRow('ทำงานวันหยุด',
+          `${(Math.round(m.rest.hours * 10) / 10)} ชม. · ${_baht_(m.rest.amount)}`));
+        bodyContents.push(_flexRow('วันหยุดนักขัตฤกษ์',
+          `${(Math.round(m.holiday.hours * 10) / 10)} ชม. · ${_baht_(m.holiday.amount)}`));
+        bodyContents.push({
+          type: 'box', layout: 'baseline', spacing: 'sm', margin: 'sm',
+          contents: [
+            { type: 'text', text: 'รวมเดือนนี้', color: '#0F5132', size: 'sm', flex: 2, weight: 'bold' },
+            { type: 'text', text: _baht_(m.total), size: 'sm', flex: 5, weight: 'bold', color: '#0F5132' },
+          ],
+        });
+      }
     }
   }
   if (req.stats) {
