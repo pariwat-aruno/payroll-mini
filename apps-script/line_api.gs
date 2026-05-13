@@ -340,16 +340,34 @@ function pushFlex(userId, altText, contents) {
     .getProperty('LINE_CHANNEL_ACCESS_TOKEN');
   if (!token) throw new Error('LINE_CHANNEL_ACCESS_TOKEN not set');
 
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+  // LINE caps altText at 400 chars and rejects the whole push if longer.
+  const safeAlt = String(altText || 'แจ้งเตือน').substring(0, 380);
+  const body = {
+    to: userId,
+    messages: [{ type: 'flex', altText: safeAlt, contents: contents }],
+  };
+  const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify({
-      to: userId,
-      messages: [{ type: 'flex', altText: altText, contents: contents }],
-    }),
+    payload: JSON.stringify(body),
     muteHttpExceptions: true,
   });
+  const code = res.getResponseCode();
+  if (code >= 400) {
+    const detail = res.getContentText();
+    console.error(`pushFlex failed (${code}) altText="${safeAlt}": ${detail}`);
+    // Surface to Audit_Log so testAllFlexCards reports real failures.
+    try {
+      logAudit({
+        action: 'PUSH_FLEX_FAILED',
+        target_type: 'line_message',
+        target_id: userId,
+        reason: `${code}: ${detail.substring(0, 500)} | alt="${safeAlt}"`,
+      });
+    } catch (_) {}
+    throw new Error(`pushFlex ${code}: ${detail}`);
+  }
 }
 
 /**
