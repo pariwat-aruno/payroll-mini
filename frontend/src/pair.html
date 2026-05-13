@@ -67,8 +67,8 @@
 <script src="api.js"></script>
 <script src="nav.js"></script>
 <script type="module">
-import { startCamera, captureFromVideoWithStamp, stopCamera } from './js/camera.js';
-window.PayrollCamera = { startCamera, captureFromVideoWithStamp, stopCamera };
+import { startCamera, captureFromVideoWithStamp, compressFile, stopCamera } from './js/camera.js';
+window.PayrollCamera = { startCamera, captureFromVideoWithStamp, compressFile, stopCamera };
 </script>
 <script>
 const Liff = window.LiffBridge;
@@ -116,15 +116,30 @@ function renderForm() {
       <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">รูปอ้างอิงสำหรับเช็คอิน</p>
-            <p class="text-xs text-slate-500 mt-1">ใช้เทียบเวลาสแกนหน้าเข้างาน (ข้ามได้)</p>
+            <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">รูป selfie (กล้องสด)</p>
+            <p class="text-xs text-slate-500 mt-1">ใช้เทียบเวลาสแกนหน้าเข้างาน</p>
           </div>
           <img id="ref-thumb" class="w-14 h-14 rounded-lg object-cover ring-1 ring-slate-200 hidden" alt="">
         </div>
         <button type="button" id="btn-ref-selfie"
                 class="w-full mt-4 bg-slate-900 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
-          ถ่ายรูปอ้างอิง
+          📷 ถ่าย selfie (กล้องสด)
         </button>
+      </section>
+
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">รูปบัตรประชาชน</p>
+            <p class="text-xs text-slate-500 mt-1">ถ่ายใหม่ หรือเลือกจากคลังภาพก็ได้</p>
+          </div>
+          <img id="idcard-thumb" class="w-14 h-14 rounded-lg object-cover ring-1 ring-slate-200 hidden" alt="">
+        </div>
+        <button type="button" id="btn-idcard"
+                class="w-full mt-4 bg-slate-900 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
+          🪪 แนบรูปบัตรประชาชน
+        </button>
+        <input id="idcard-input" type="file" accept="image/*" hidden>
       </section>
 
       <div class="pt-1 px-1">
@@ -139,10 +154,31 @@ function renderForm() {
 
   document.getElementById('pair-form').addEventListener('submit', onSubmit);
   document.getElementById('btn-ref-selfie').addEventListener('click', openRefSelfieCamera);
+  document.getElementById('btn-idcard').addEventListener('click', () => {
+    document.getElementById('idcard-input').click();
+  });
+  document.getElementById('idcard-input').addEventListener('change', onIdCardPicked);
 }
 
 let refSelfieBase64 = null;
+let idCardBase64 = null;
 let camStream = null;
+
+async function onIdCardPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const dataUrl = await window.PayrollCamera.compressFile(file, 1200, 0.82);
+    idCardBase64 = dataUrl.split(',')[1];
+    const thumb = document.getElementById('idcard-thumb');
+    thumb.src = dataUrl;
+    thumb.classList.remove('hidden');
+    document.getElementById('btn-idcard').textContent = '🪪 เปลี่ยนรูปบัตรประชาชน';
+  } catch (err) {
+    alert('โหลดรูปไม่ได้: ' + (err.message || err));
+  }
+}
 
 async function openRefSelfieCamera() {
   const modal = document.getElementById('cam-modal');
@@ -189,6 +225,7 @@ async function onSubmit(e) {
 
   try {
     if (refSelfieBase64) data.reference_selfie_base64 = refSelfieBase64;
+    if (idCardBase64)    data.id_card_base64 = idCardBase64;
     const result = await Api.apiPairEmployee(data, userIdToken);
     showSuccess(result);
   } catch (err) {

@@ -91,7 +91,7 @@ const PUBLIC_TABS = [
     headers: ['emp_code', 'first_name', 'last_name', 'nickname',
               'national_id', 'email', 'department', 'position',
               'supervisor_email', 'start_date', 'end_date', 'status',
-              'sso_number', 'note', 'reference_selfie_url'],
+              'sso_number', 'note', 'reference_selfie_url', 'id_card_url'],
   },
   {
     name: 'Holiday_Calendar',

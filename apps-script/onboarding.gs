@@ -163,14 +163,22 @@ function pairEmployee(payload, ctx) {
     last_seen:    '',
   }]);
 
-  // Optional: reference selfie captured during pair flow.
-  // Best-effort — pairing must succeed even if Drive folder isn't configured yet.
+  // Optional uploads captured during pair flow. Best-effort — pairing must
+  // succeed even if Drive folder isn't configured yet.
   if (payload.reference_selfie_base64) {
     try {
       const url = uploadSelfieBase64_(payload.reference_selfie_base64, 'reference', empCodeInput);
       _setEmployeeField_(getPublicSheet_(), empCodeInput, 'reference_selfie_url', url);
     } catch (e) {
       console.error('reference_selfie_upload_failed: ' + e);
+    }
+  }
+  if (payload.id_card_base64) {
+    try {
+      const url = uploadSelfieBase64_(payload.id_card_base64, 'idcard', empCodeInput);
+      _setEmployeeField_(getPublicSheet_(), empCodeInput, 'id_card_url', url);
+    } catch (e) {
+      console.error('id_card_upload_failed: ' + e);
     }
   }
 

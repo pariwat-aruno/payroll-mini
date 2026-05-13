@@ -142,3 +142,32 @@ export function stopCamera(stream) {
   stream.getTracks().forEach(function (t) { t.stop(); });
 }
 
+/**
+ * Load a File (camera or gallery pick), downscale to maxWidth and re-encode
+ * as JPEG. No stamp overlay — used for documents like ID cards where we
+ * just want a smaller version of whatever the user supplied.
+ */
+export function compressFile(file, maxWidth = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('โหลดรูปไม่ได้'));
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h) return reject(new Error('รูปไม่ถูกต้อง'));
+        const ratio = Math.min(maxWidth / w, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(w * ratio);
+        canvas.height = Math.round(h * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
