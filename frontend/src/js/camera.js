@@ -15,8 +15,9 @@ export async function startCamera(videoEl, facing = 'user') {
   }
   // One single permission prompt — loose constraints so LINE/iOS webviews accept it.
   // Don't request facingMode:'exact' (commonly returns "internal error").
+  // Cap resolution so the captured JPEG stays under ~200KB even on 4K-capable phones.
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing },
+    video: { facingMode: facing, width: { ideal: 960 }, height: { ideal: 720 } },
     audio: false,
   });
   videoEl.srcObject = stream;
@@ -26,7 +27,7 @@ export async function startCamera(videoEl, facing = 'user') {
   return stream;
 }
 
-export function captureFromVideo(videoEl, maxWidth = 1280, quality = 0.85) {
+export function captureFromVideo(videoEl, maxWidth = 960, quality = 0.75) {
   const w = videoEl.videoWidth;
   const h = videoEl.videoHeight;
   if (!w || !h) throw new Error('กล้องยังไม่พร้อม');
@@ -42,7 +43,7 @@ export function captureFromVideo(videoEl, maxWidth = 1280, quality = 0.85) {
  * Burn label + Asia/Bangkok timestamp + optional brand line into the bottom of the photo.
  * Makes the capture tamper-resistant — you can't strip the metadata by re-saving.
  */
-export function captureFromVideoWithStamp(videoEl, label, brand, maxWidth = 1280, quality = 0.85) {
+export function captureFromVideoWithStamp(videoEl, label, brand, maxWidth = 960, quality = 0.75) {
   const w = videoEl.videoWidth;
   const h = videoEl.videoHeight;
   if (!w || !h) throw new Error('กล้องยังไม่พร้อม');
