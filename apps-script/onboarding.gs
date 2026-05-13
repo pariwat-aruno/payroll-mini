@@ -163,6 +163,17 @@ function pairEmployee(payload, ctx) {
     last_seen:    '',
   }]);
 
+  // Optional: reference selfie captured during pair flow.
+  // Best-effort — pairing must succeed even if Drive folder isn't configured yet.
+  if (payload.reference_selfie_base64) {
+    try {
+      const url = uploadSelfieBase64_(payload.reference_selfie_base64, 'reference', empCodeInput);
+      _setEmployeeField_(getPublicSheet_(), empCodeInput, 'reference_selfie_url', url);
+    } catch (e) {
+      console.error('reference_selfie_upload_failed: ' + e);
+    }
+  }
+
   // Invalidate caches so subsequent requests pick up the new mapping
   cache.remove('emp:' + ctx.userId);
   cache.remove('uid:' + empCodeInput);
@@ -188,6 +199,29 @@ function pairEmployee(payload, ctx) {
     full_name: `${emp.first_name} ${emp.last_name}`.trim(),
     role: empCodeInput === 'OWNER' ? 'owner' : 'employee',
   };
+}
+
+/**
+ * Set a single field on the Employees row matched by emp_code.
+ * Throws if the column or row is missing — caller decides whether to swallow.
+ */
+function _setEmployeeField_(ss, empCode, field, value) {
+  const sheet = ss.getSheetByName('Employees');
+  if (!sheet) throw new Error('employees_tab_missing');
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colIdx = headers.indexOf(field);
+  if (colIdx < 0) throw new Error('column_missing: ' + field);
+  const empCol = headers.indexOf('emp_code');
+  const last = sheet.getLastRow();
+  if (last < 2) throw new Error('emp_not_found: ' + empCode);
+  const codes = sheet.getRange(2, empCol + 1, last - 1, 1).getValues();
+  for (let i = 0; i < codes.length; i++) {
+    if (String(codes[i][0]).trim().toUpperCase() === String(empCode).trim().toUpperCase()) {
+      sheet.getRange(i + 2, colIdx + 1).setValue(value);
+      return;
+    }
+  }
+  throw new Error('emp_not_found: ' + empCode);
 }
 
 /**

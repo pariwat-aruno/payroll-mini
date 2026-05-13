@@ -679,7 +679,9 @@ function runReconcile(period) {
   const leaves = readTab_(publicSs, 'Leave_Records').filter(l => l.status === 'approved');
   const otRequests = readTab_(publicSs, 'OT_Requests').filter(o => o.status === 'approved');
   const attendance = readTab_(publicSs, 'Attendance_Raw')
-    .filter(a => periodOf_(a.date) === period);
+    .filter(a => periodOf_(a.date) === period)
+    // selfie rows rejected by Owner don't count as attendance — treat as if never punched
+    .filter(a => !(a.source === 'selfie' && a.approval_status === 'rejected'));
 
   // STEP 2-3: build reconciled rows + escalations
   const reconciledRows = [];

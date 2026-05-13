@@ -88,3 +88,37 @@ function _sanitizeFilename_(name, ext) {
     || 'photo';
   return `${base}.${ext}`;
 }
+
+/* ============================================================
+ * Selfie check-in uploads — separate folder from evidence.
+ * Folder is per-tenant, configured in Settings.CHECKIN_DRIVE_FOLDER_ID.
+ * ============================================================ */
+
+/**
+ * Upload a base64 selfie image and return its shareable URL.
+ * @param {string} base64 — pure base64 (no `data:` prefix)
+ * @param {string} kind — 'reference' | 'daily'
+ * @param {string} empCode
+ */
+function uploadSelfieBase64_(base64, kind, empCode) {
+  if (!base64) throw new Error('missing_selfie');
+  if (base64.length > 7 * 1024 * 1024) throw new Error('selfie_too_large_max_5mb');
+
+  const folderId = String(getSetting_('CHECKIN_DRIVE_FOLDER_ID', '')).trim();
+  if (!folderId) throw new Error('checkin_drive_folder_not_configured');
+
+  let folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    throw new Error('checkin_drive_folder_not_accessible: ' + folderId);
+  }
+
+  const stamp = formatDatetime_(new Date()).replace(/[: ]/g, '-');
+  const filename = `${kind}_${empCode || 'unknown'}_${stamp}.jpg`;
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, 'image/jpeg', filename);
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file.getUrl();
+}

@@ -87,6 +87,12 @@ function migrateSheets() {
       ['LEAVE_SICK_MIN_ADVANCE_HOURS', '1', 'Minimum advance notice (hours) for sick leave before work-start time.'],
       ['INFO_REQUEST_TIMEOUT_MINUTES', '30', 'Minutes after approver requests info before leave is auto-cancelled.'],
       ['CONDITIONAL_EVIDENCE_DAYS_AFTER_END', '1', 'Days after leave end_date when employee must submit conditional evidence.'],
+      ['CHECKIN_MODE', 'fingerprint', 'fingerprint (default) | selfie | both.'],
+      ['CHECKIN_APPROVER_USERIDS', '', 'Comma-separated LINE userIds receiving flagged selfie check-in approval cards.'],
+      ['CHECKIN_GEOFENCE_LAT', '', 'Worksite latitude (decimal degrees).'],
+      ['CHECKIN_GEOFENCE_LNG', '', 'Worksite longitude (decimal degrees).'],
+      ['CHECKIN_GEOFENCE_RADIUS_M', '150', 'Allowed radius from worksite in meters.'],
+      ['CHECKIN_DRIVE_FOLDER_ID', '', 'Drive folder ID for selfie check-in images.'],
     ];
 
     const toAppend = desired.filter(row => !existingKeys.has(row[0]));

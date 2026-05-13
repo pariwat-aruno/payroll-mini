@@ -14,23 +14,50 @@
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
 
-  /* Critical card layout — applied before Tailwind CDN JIT finishes to avoid
-     the "cards-cramped-then-spread" flash. Mirrors the Tailwind classes on
-     .menu-card so visual is identical once Tailwind takes over. */
+  /* Critical card baseline — prevents card flash before Tailwind JIT finishes */
   .menu-card {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
     background: #fff;
-    padding: 1.25rem;
-    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-radius: 0.85rem;
     border: 1px solid rgb(226, 232, 240);
     text-decoration: none;
     color: inherit;
   }
   .menu-card[hidden] { display: none; }
-  /* Spacing between any two visible menu cards */
-  .menu-card:not([hidden]) ~ .menu-card:not([hidden]) { margin-top: 0.75rem; }
-  /* Pair card has its own amber styling + always reserves a top gap from the
-     header even when it's the only visible card (unpaired case) */
+  .menu-card:not([hidden]) ~ .menu-card:not([hidden]) { margin-top: 0.6rem; }
+
+  .icon-box {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; line-height: 1;
+    flex-shrink: 0;
+  }
+  .section-heading {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgb(100, 116, 139);
+    padding-left: 4px;
+    margin: 1.25rem 0 0.55rem;
+  }
+  .section-heading:first-of-type { margin-top: 0; }
+  .pill {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: 1px;
+  }
+
+  /* Pair card — amber warning */
   #pair-card {
     background: rgb(255, 251, 235);
     border: 2px solid rgb(252, 211, 77);
@@ -65,109 +92,114 @@
   </div>
 </header>
 
-<main class="px-4 -mt-6 space-y-3">
+<main class="px-4 -mt-6">
 
-  <!-- Employee cards (hidden until LINE_User_Map is paired) -->
-  <a href="leave.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
+  <!-- Pair card — shown when user has no LINE_User_Map mapping yet -->
+  <a href="pair.html" id="pair-card" hidden class="menu-card active:scale-[0.99] transition">
+    <div class="icon-box bg-amber-100 text-amber-700">🔗</div>
+    <div class="flex-1">
+      <p class="font-semibold text-amber-900">ผูกบัญชี LINE</p>
+      <p class="text-xs text-amber-700 mt-0.5">ใส่รหัสที่ HR ส่งให้เพื่อเริ่มใช้</p>
+    </div>
+  </a>
+
+  <!-- Section: Employee work -->
+  <p class="section-heading hidden" id="sec-work-heading">งานของฉัน</p>
+  <div id="sec-work">
+
+    <a href="checkin.html" data-paired-only hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-cyan-100 text-cyan-700">📸</div>
+      <div class="flex-1">
+        <p class="font-semibold text-slate-900">เช็คอินด้วยใบหน้า</p>
+        <p class="text-xs text-slate-500 mt-0.5">ถ่ายรูปสด + ตำแหน่ง GPS</p>
+      </div>
+    </a>
+
+    <a href="leave.html" data-paired-only hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-emerald-100 text-emerald-700">📝</div>
+      <div class="flex-1">
         <p class="font-semibold text-slate-900">ส่งใบลา</p>
         <p class="text-xs text-slate-500 mt-0.5">กรอกใบลาและส่งขออนุมัติ</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
 
-  <a href="ot.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
+    <a href="ot.html" data-paired-only hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-indigo-100 text-indigo-700">⏰</div>
+      <div class="flex-1">
         <p class="font-semibold text-slate-900">ขอ OT</p>
         <p class="text-xs text-slate-500 mt-0.5">บันทึกชั่วโมงทำงานนอกเวลา</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
 
-  <a href="quota.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
+    <a href="quota.html" data-paired-only hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-sky-100 text-sky-700">📊</div>
+      <div class="flex-1">
         <p class="font-semibold text-slate-900">สิทธิ์การลา</p>
         <p class="text-xs text-slate-500 mt-0.5">สิทธิ์คงเหลือและประวัติ</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
 
-  <a href="slip.html" data-paired-only hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
+    <a href="slip.html" data-paired-only hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-teal-100 text-teal-700">💰</div>
+      <div class="flex-1">
         <p class="font-semibold text-slate-900">สลิปเงินเดือน</p>
         <p class="text-xs text-slate-500 mt-0.5">ดูสลิปและดาวน์โหลด PDF</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
+  </div>
 
-  <!-- HR + Owner card -->
-  <a href="hr.html" id="hr-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-slate-900">เครื่องมือ HR
-          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">HR</span>
+  <!-- Section: HR -->
+  <p class="section-heading hidden" id="sec-hr-heading">เครื่องมือ HR</p>
+  <div id="sec-hr">
+    <a href="hr.html" id="hr-card" hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-violet-100 text-violet-700">🛠️</div>
+      <div class="flex-1">
+        <p class="font-semibold text-slate-900">
+          เครื่องมือ HR
+          <span class="pill bg-violet-100 text-violet-700">HR</span>
         </p>
         <p class="text-xs text-slate-500 mt-0.5">จัดการเงินเพิ่ม/หัก · วันหยุด · โควตาลา · พนักงาน</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
+  </div>
 
-  <!-- Owner-only cards (hidden by default) -->
-  <a href="owner.html" id="owner-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-slate-900">กล่องอนุมัติ
-          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+  <!-- Section: Owner -->
+  <p class="section-heading hidden" id="sec-owner-heading">สำหรับเจ้าของ</p>
+  <div id="sec-owner">
+    <a href="owner.html" id="owner-card" hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-amber-100 text-amber-700">📥</div>
+      <div class="flex-1">
+        <p class="font-semibold text-slate-900">
+          กล่องอนุมัติ
+          <span class="pill bg-amber-100 text-amber-700">เจ้าของ</span>
         </p>
-        <p class="text-xs text-slate-500 mt-0.5">อนุมัติ/ปฏิเสธคำขอที่รออยู่ + รัน Reconcile/Payroll</p>
+        <p class="text-xs text-slate-500 mt-0.5">อนุมัติคำขอ + รัน Reconcile/Payroll</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
 
-  <a href="onboard.html" id="onboard-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-slate-900">เพิ่มพนักงานใหม่
-          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+    <a href="onboard.html" id="onboard-card" hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-rose-100 text-rose-700">👤</div>
+      <div class="flex-1">
+        <p class="font-semibold text-slate-900">
+          เพิ่มพนักงานใหม่
+          <span class="pill bg-amber-100 text-amber-700">เจ้าของ</span>
         </p>
         <p class="text-xs text-slate-500 mt-0.5">กรอกครั้งเดียว ระบบสร้าง 5 row + ออก pairing code</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
 
-  <a href="help.html" id="help-card" hidden class="menu-card block bg-white rounded-xl ring-1 ring-slate-200 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-slate-900">คู่มือเจ้าของระบบ
-          <span class="ml-1 text-[10px] text-slate-400 uppercase tracking-wider font-medium">เจ้าของ</span>
+    <a href="help.html" id="help-card" hidden class="menu-card active:scale-[0.99] transition">
+      <div class="icon-box bg-slate-100 text-slate-700">📘</div>
+      <div class="flex-1">
+        <p class="font-semibold text-slate-900">
+          คู่มือเจ้าของระบบ
+          <span class="pill bg-amber-100 text-amber-700">เจ้าของ</span>
         </p>
         <p class="text-xs text-slate-500 mt-0.5">รอบเดือน · escalation playbook · คำสั่ง chat</p>
       </div>
-      <span class="text-slate-400 text-xl">›</span>
-    </div>
-  </a>
+    </a>
+  </div>
 
-  <!-- Pair card — shown when user has no LINE_User_Map mapping yet -->
-  <a href="pair.html" id="pair-card" hidden class="menu-card block bg-white rounded-xl ring-2 ring-amber-300 bg-amber-50 p-5 active:scale-[0.99] transition">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-amber-900">ผูกบัญชี LINE</p>
-        <p class="text-xs text-amber-700 mt-0.5">ใส่รหัสที่ HR ส่งให้เพื่อเริ่มใช้</p>
-      </div>
-      <span class="text-amber-700 text-xl">›</span>
-    </div>
-  </a>
 </main>
 
 </div>
@@ -187,22 +219,22 @@ const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
     const profile = await Liff.liffGetProfile();
     document.getElementById('user-greeting').textContent = profile.displayName;
 
-    // Reveal owner-only cards if applicable
     try {
       const me = await window.PayrollApi.apiGetMe(Liff.liffGetIDToken());
       if (me && me.emp_code) {
-        // Paired — reveal employee cards
         document.querySelectorAll('[data-paired-only]').forEach(el => el.removeAttribute('hidden'));
+        document.getElementById('sec-work-heading').classList.remove('hidden');
         if (me.is_hr) {
           document.getElementById('hr-card').removeAttribute('hidden');
+          document.getElementById('sec-hr-heading').classList.remove('hidden');
         }
         if (me.is_owner) {
           document.getElementById('owner-card').removeAttribute('hidden');
           document.getElementById('onboard-card').removeAttribute('hidden');
           document.getElementById('help-card').removeAttribute('hidden');
+          document.getElementById('sec-owner-heading').classList.remove('hidden');
         }
       } else {
-        // Not paired — show only the pair card
         document.getElementById('pair-card').removeAttribute('hidden');
       }
     } catch (_) { /* keep all cards hidden on error */ }

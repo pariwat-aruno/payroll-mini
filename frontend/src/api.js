@@ -144,6 +144,14 @@ async function apiUploadEvidence(idToken, payload) {
   return apiPost('uploadEvidence', payload, idToken);
 }
 
+async function apiSubmitCheckin(idToken, payload) {
+  return apiPost('submitCheckin', payload, idToken);
+}
+
+async function apiGetCheckinStatus(idToken) {
+  return apiPost('getCheckinStatus', {}, idToken);
+}
+
 // HR / Admin
 async function apiHrListEmployees(idToken)              { return apiPost('hrListEmployees', {}, idToken); }
 async function apiHrUpsertEmployee(idToken, payload)    { return apiPost('hrUpsertEmployee', payload, idToken); }
@@ -184,6 +192,8 @@ if (typeof window !== 'undefined') {
     apiRespondInfoRequest,
     apiSubmitConditionalEvidence,
     apiUploadEvidence,
+    apiSubmitCheckin,
+    apiGetCheckinStatus,
     apiHrListEmployees,
     apiHrUpsertEmployee,
     apiHrListAllowances,

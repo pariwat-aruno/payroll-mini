@@ -548,6 +548,96 @@ function sendChangeApprovalFlex(ownerUserId, req) {
   pushFlex(ownerUserId, '🔔 HR ขออนุมัติการเปลี่ยนแปลง', flex);
 }
 
+/**
+ * Flex card for a selfie check-in flagged outside the geofence.
+ * @param {string} approverUserId — LINE userId (must start with 'U')
+ * @param {object} req
+ *   { empCode, empName, empSubtitle, date, kind, time,
+ *     distanceM, radiusM, geofenceOk,
+ *     selfieInUrl, selfieOutUrl, refSelfieUrl, mapsUrl }
+ */
+function sendCheckinApprovalFlex(approverUserId, req) {
+  if (!approverUserId) return;
+  if (!String(approverUserId).startsWith('U')) {
+    const resolved = lookupUserIdByEmpCode(approverUserId);
+    if (!resolved) {
+      console.warn('sendCheckinApprovalFlex: cannot resolve approver "' + approverUserId + '"');
+      return;
+    }
+    approverUserId = resolved;
+  }
+
+  const title = '📍 เช็คอินนอกรัศมีหน้างาน';
+  const bodyContents = [
+    { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: '#B91C1C' },
+    { type: 'separator', margin: 'md' },
+    { type: 'text', text: req.empName || req.empCode || '-', weight: 'bold', size: 'md', margin: 'md', wrap: true },
+    { type: 'text', text: req.empSubtitle || '', size: 'xs', color: '#666666', wrap: true },
+    { type: 'separator', margin: 'md' },
+    _flexRow('วันที่', req.date || '-'),
+    _flexRow('เวลา', (req.kind === 'out' ? 'ออกงาน ' : 'เข้างาน ') + (req.time || '-')),
+    _flexRow('ระยะห่าง', `${req.distanceM} m (เกิน ${req.radiusM} m)`),
+  ];
+  if (req.mapsUrl) {
+    bodyContents.push({
+      type: 'text',
+      text: '🗺️ ดูตำแหน่งบนแผนที่',
+      size: 'sm', color: '#0066CC', margin: 'sm',
+      action: { type: 'uri', uri: req.mapsUrl },
+    });
+  }
+
+  // Thumbnail row — selfie this punch + reference selfie side by side if both available
+  const heroImgs = [];
+  if (req.selfieOutUrl || req.selfieInUrl) {
+    heroImgs.push({
+      type: 'image',
+      url: req.selfieOutUrl || req.selfieInUrl,
+      size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
+      action: { type: 'uri', uri: req.selfieOutUrl || req.selfieInUrl },
+    });
+  }
+  if (req.refSelfieUrl) {
+    heroImgs.push({
+      type: 'image',
+      url: req.refSelfieUrl,
+      size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
+      action: { type: 'uri', uri: req.refSelfieUrl },
+    });
+  }
+
+  const flex = {
+    type: 'bubble',
+    body: {
+      type: 'box', layout: 'vertical', contents: bodyContents,
+    },
+    footer: {
+      type: 'box', layout: 'vertical', spacing: 'sm', contents: [
+        { type: 'button', style: 'primary', color: '#0F5132',
+          action: {
+            type: 'postback',
+            label: '✅ อนุมัติ',
+            data: `action=approve_checkin&emp=${encodeURIComponent(req.empCode)}&date=${req.date}`,
+            displayText: `อนุมัติเช็คอิน ${req.empCode} วันที่ ${req.date}`,
+          } },
+        { type: 'button', style: 'secondary',
+          action: {
+            type: 'postback',
+            label: '❌ ปฏิเสธ',
+            data: `action=reject_checkin&emp=${encodeURIComponent(req.empCode)}&date=${req.date}`,
+            displayText: `ปฏิเสธเช็คอิน ${req.empCode} วันที่ ${req.date}`,
+          } },
+      ],
+    },
+  };
+  if (heroImgs.length) {
+    flex.hero = {
+      type: 'box', layout: 'horizontal', spacing: 'sm', contents: heroImgs,
+    };
+  }
+  pushFlex(approverUserId, title, flex);
+}
+
 function _flexRow(label, value) {
   return {
     type: 'box',

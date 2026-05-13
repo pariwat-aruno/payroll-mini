@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>เช็คอินด้วยใบหน้า — Payroll Mini</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdn.tailwindcss.com"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Poppins:wght@500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
+  .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen">
+<div class="max-w-lg mx-auto pb-10">
+
+<div id="mock-banner" class="hidden bg-amber-100 text-amber-800 text-xs px-4 py-2 text-center font-medium">
+  Local dev mode — using mock LIFF
+</div>
+
+<header class="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white text-center px-6 pt-7 pb-10">
+  <div class="flex items-center justify-center gap-3">
+    <img src="logo.png" alt="HumanAI" class="w-10 h-10 rounded-lg bg-white/95 p-1 shadow-sm">
+    <div class="leading-tight">
+      <p class="font-brand font-bold text-lg">HumanAI</p>
+      <p class="text-[11px] text-white/80">จัดการ HR ครบ จบในที่เดียว</p>
+    </div>
+  </div>
+  <div class="mt-7">
+    <p class="text-[11px] text-white/80 uppercase tracking-[0.18em] font-semibold">
+      <span>สวัสดี ·</span>
+      <span id="user-greeting">กำลังโหลด</span>
+    </p>
+    <h1 class="mt-3 text-3xl font-bold tracking-tight">เช็คอินด้วยใบหน้า</h1>
+    <p class="text-sm text-white/85 mt-1.5">ถ่ายรูปสด + ตำแหน่งที่ตั้ง</p>
+  </div>
+</header>
+
+<main class="px-4 -mt-4 space-y-3">
+
+<section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+  <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-4">วันนี้</p>
+  <div class="grid grid-cols-3 gap-3 text-center">
+    <div>
+      <p class="text-[11px] text-slate-500 mb-1">เข้างาน</p>
+      <p id="t-in" class="text-2xl font-bold font-mono text-slate-900">--:--</p>
+    </div>
+    <div>
+      <p class="text-[11px] text-slate-500 mb-1">ออกงาน</p>
+      <p id="t-out" class="text-2xl font-bold font-mono text-slate-900">--:--</p>
+    </div>
+    <div>
+      <p class="text-[11px] text-slate-500 mb-1">รวม</p>
+      <p id="t-total" class="text-2xl font-bold font-mono text-slate-900">--</p>
+    </div>
+  </div>
+  <div id="status-flags" class="mt-4 text-center text-xs text-slate-500 min-h-[1em]"></div>
+</section>
+
+<div class="pt-1 px-1">
+  <button id="btn-checkin"
+          class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
+    เริ่มเช็คอิน
+  </button>
+  <p id="hint" class="text-xs text-slate-500 text-center mt-3">
+    ระบบจะขอเปิดกล้อง + ตำแหน่ง GPS
+  </p>
+</div>
+
+<p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
+
+</main>
+</div>
+
+<!-- Camera modal -->
+<div id="cam-modal" class="fixed inset-0 z-50 hidden bg-black/90 flex flex-col">
+  <div class="flex-1 flex items-center justify-center p-4">
+    <video id="cam-video" class="max-w-full max-h-full rounded-lg bg-black" autoplay playsinline></video>
+  </div>
+  <div class="bg-slate-900/90 px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-3">
+    <button type="button" id="cam-cancel"
+            class="flex-1 bg-slate-700 text-white py-3.5 rounded-lg font-semibold text-sm tracking-wide">
+      ยกเลิก
+    </button>
+    <button type="button" id="cam-capture"
+            class="flex-[2] bg-white text-slate-900 py-3.5 rounded-lg font-semibold text-sm tracking-wide">
+      ถ่ายภาพ
+    </button>
+  </div>
+</div>
+
+<script src="liff-bridge.js"></script>
+<script src="api.js"></script>
+<script src="nav.js"></script>
+<script type="module">
+import { startCamera, captureFromVideoWithStamp, stopCamera } from './js/camera.js';
+window.PayrollCamera = { startCamera, captureFromVideoWithStamp, stopCamera };
+</script>
+<script>
+const Liff = window.LiffBridge;
+const Api  = window.PayrollApi;
+
+const params = new URLSearchParams(window.location.search);
+const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
+
+let userIdToken = null;
+let coords = null;        // {lat, lng}
+let camStream = null;
+let status_ = null;       // last loaded status
+
+(async function init() {
+  try {
+    await Liff.liffInit(LIFF_ID);
+    if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
+    const profile = await Liff.liffGetProfile();
+    userIdToken = Liff.liffGetIDToken();
+    document.getElementById('user-greeting').textContent = profile.displayName;
+    await loadStatus();
+  } catch (err) {
+    setStatus('โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+  }
+})();
+
+async function loadStatus() {
+  try {
+    status_ = await Api.apiGetCheckinStatus(userIdToken);
+    renderStatus(status_);
+  } catch (err) {
+    setStatus('โหลดสถานะไม่ได้: ' + err.message, 'error');
+  }
+}
+
+function renderStatus(s) {
+  document.getElementById('t-in').textContent  = s.clock_in  || '--:--';
+  document.getElementById('t-out').textContent = s.clock_out || '--:--';
+  document.getElementById('t-total').textContent = s.total_minutes
+    ? minutesToHm(s.total_minutes) : '--';
+
+  const flags = [];
+  if (!s.geofence_ok) flags.push('นอกรัศมีหน้างาน');
+  if (s.approval_status === 'pending')  flags.push('รออนุมัติ');
+  if (s.approval_status === 'rejected') flags.push('ไม่อนุมัติ');
+  document.getElementById('status-flags').textContent = flags.join(' · ');
+
+  const btn = document.getElementById('btn-checkin');
+  if (!s.clock_in) btn.textContent = 'เช็คอินเข้างาน';
+  else if (!s.clock_out) btn.textContent = 'เช็คอินออกงาน';
+  else btn.textContent = 'อัปเดตเวลาออก';
+}
+
+function minutesToHm(m) {
+  m = Number(m) || 0;
+  const h = Math.floor(m / 60), mm = m % 60;
+  if (h && mm) return `${h}h${mm}m`;
+  if (h) return `${h}h`;
+  return `${mm}m`;
+}
+
+document.getElementById('btn-checkin').addEventListener('click', startCheckin);
+
+async function startCheckin() {
+  const btn = document.getElementById('btn-checkin');
+  btn.disabled = true;
+  setStatus('กำลังขอตำแหน่ง...');
+  try {
+    coords = await getCoords();
+    setStatus('');
+    await openCam();
+  } catch (err) {
+    setStatus('ไม่สามารถอ่านตำแหน่งได้: ' + err.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+function getCoords() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('เบราว์เซอร์ไม่รองรับ GPS'));
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => reject(new Error(err.message || 'GPS error')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+
+async function openCam() {
+  document.getElementById('cam-modal').classList.remove('hidden');
+  try {
+    const video = document.getElementById('cam-video');
+    camStream = await window.PayrollCamera.startCamera(video, 'user');
+  } catch (err) {
+    closeCam();
+    document.getElementById('btn-checkin').disabled = false;
+    setStatus('เปิดกล้องไม่ได้: ' + err.message, 'error');
+  }
+}
+
+function closeCam() {
+  window.PayrollCamera.stopCamera(camStream);
+  camStream = null;
+  document.getElementById('cam-modal').classList.add('hidden');
+}
+
+document.getElementById('cam-cancel').addEventListener('click', () => {
+  closeCam();
+  document.getElementById('btn-checkin').disabled = false;
+});
+
+document.getElementById('cam-capture').addEventListener('click', async () => {
+  const captureBtn = document.getElementById('cam-capture');
+  captureBtn.disabled = true;
+  captureBtn.textContent = 'กำลังส่ง...';
+  try {
+    const video = document.getElementById('cam-video');
+    const label = (status_ && status_.clock_in) ? 'ออกงาน' : 'เข้างาน';
+    const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, label, 'HumanAI Payroll');
+    const base64 = dataUrl.split(',')[1];
+    closeCam();
+    setStatus('กำลังบันทึก...');
+    const result = await Api.apiSubmitCheckin(userIdToken, {
+      lat: coords.lat,
+      lng: coords.lng,
+      selfie_base64: base64,
+    });
+    setStatus(buildSuccessMsg(result), 'ok');
+    await loadStatus();
+  } catch (err) {
+    const map = {
+      not_paired: 'ยังไม่ผูกบัญชี LINE — ไปหน้าผูกบัญชีก่อน',
+      missing_location: 'ไม่มีตำแหน่ง',
+      missing_selfie: 'ไม่มีรูปถ่าย',
+      selfie_too_large_max_5mb: 'รูปใหญ่เกิน 5MB',
+      selfie_checkin_disabled: 'ระบบยังไม่เปิดให้เช็คอินด้วยใบหน้า',
+      checkin_drive_folder_not_configured: 'ผู้ดูแลยังไม่ตั้ง Drive folder',
+    };
+    setStatus(map[err.message] || ('ผิดพลาด: ' + err.message), 'error');
+  } finally {
+    captureBtn.disabled = false;
+    captureBtn.textContent = 'ถ่ายภาพ';
+    document.getElementById('btn-checkin').disabled = false;
+  }
+});
+
+window.addEventListener('pagehide', () => { if (camStream) closeCam(); });
+
+function buildSuccessMsg(r) {
+  const base = r.clock_out
+    ? `บันทึกออกงาน ${r.clock_out} (รวม ${minutesToHm(r.total_minutes)})`
+    : `บันทึกเข้างาน ${r.clock_in}`;
+  if (!r.geofence_ok) return `${base} · นอกรัศมี (${r.distance_m}m) — รออนุมัติ`;
+  return base;
+}
+
+function setStatus(msg, kind) {
+  const el = document.getElementById('status-message');
+  el.textContent = msg;
+  el.className = 'text-sm text-center min-h-[1.5em] font-medium '
+    + (kind === 'error' ? 'text-red-600'
+     : kind === 'ok'    ? 'text-emerald-600'
+     : 'text-slate-500');
+}
+</script>
+</body>
+</html>

@@ -114,6 +114,10 @@ function _getHandler(action) {
     getLeaveForRespond: handleGetLeaveForRespond,
     uploadEvidence: handleUploadEvidence,
 
+    // Selfie check-in
+    submitCheckin:   (p, c) => submitCheckin(p, c),
+    getCheckinStatus:(p, c) => getCheckinStatus(p, c),
+
     // HR / Admin (HR or Owner role required)
     hrListEmployees:    handleHrListEmployees,
     hrUpsertEmployee:   handleHrUpsertEmployee,
@@ -452,6 +456,11 @@ function _handlePostback(event) {
   // HR change approval (Owner taps approve/reject from Flex)
   if (params.action === 'approve_change' || params.action === 'reject_change') {
     handlePendingChangePostback_(userId, params);
+    return;
+  }
+  // Selfie check-in approval (geofence flag)
+  if (params.action === 'approve_checkin' || params.action === 'reject_checkin') {
+    handleCheckinApprovalAction(userId, params);
     return;
   }
 }

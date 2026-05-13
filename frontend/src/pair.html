@@ -46,9 +46,30 @@
 
 </div>
 
+<!-- camera modal -->
+<div id="cam-modal" class="fixed inset-0 z-50 hidden bg-black/85 flex flex-col">
+  <div class="flex-1 flex items-center justify-center p-4">
+    <video id="cam-video" class="max-w-full max-h-full rounded-lg bg-black" autoplay playsinline></video>
+  </div>
+  <div class="bg-slate-900/90 px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-3">
+    <button type="button" id="cam-cancel"
+            class="flex-1 bg-slate-700 text-white py-3.5 rounded-lg font-semibold text-sm tracking-wide">
+      ยกเลิก
+    </button>
+    <button type="button" id="cam-capture"
+            class="flex-[2] bg-white text-slate-900 py-3.5 rounded-lg font-semibold text-sm tracking-wide">
+      ถ่ายภาพ
+    </button>
+  </div>
+</div>
+
 <script src="liff-bridge.js"></script>
 <script src="api.js"></script>
 <script src="nav.js"></script>
+<script type="module">
+import { startCamera, captureFromVideoWithStamp, stopCamera } from './js/camera.js';
+window.PayrollCamera = { startCamera, captureFromVideoWithStamp, stopCamera };
+</script>
 <script>
 const Liff = window.LiffBridge;
 const Api  = window.PayrollApi;
@@ -92,6 +113,20 @@ function renderForm() {
         </div>
       </section>
 
+      <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">รูปอ้างอิงสำหรับเช็คอิน</p>
+            <p class="text-xs text-slate-500 mt-1">ใช้เทียบเวลาสแกนหน้าเข้างาน (ข้ามได้)</p>
+          </div>
+          <img id="ref-thumb" class="w-14 h-14 rounded-lg object-cover ring-1 ring-slate-200 hidden" alt="">
+        </div>
+        <button type="button" id="btn-ref-selfie"
+                class="w-full mt-4 bg-slate-900 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
+          ถ่ายรูปอ้างอิง
+        </button>
+      </section>
+
       <div class="pt-1 px-1">
         <button type="submit" id="submit-btn"
                 class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
@@ -103,7 +138,46 @@ function renderForm() {
   `;
 
   document.getElementById('pair-form').addEventListener('submit', onSubmit);
+  document.getElementById('btn-ref-selfie').addEventListener('click', openRefSelfieCamera);
 }
+
+let refSelfieBase64 = null;
+let camStream = null;
+
+async function openRefSelfieCamera() {
+  const modal = document.getElementById('cam-modal');
+  const video = document.getElementById('cam-video');
+  modal.classList.remove('hidden');
+  try {
+    camStream = await window.PayrollCamera.startCamera(video, 'user');
+  } catch (err) {
+    closeCam();
+    alert('เปิดกล้องไม่ได้: ' + err.message);
+  }
+}
+
+function closeCam() {
+  window.PayrollCamera.stopCamera(camStream);
+  camStream = null;
+  document.getElementById('cam-modal').classList.add('hidden');
+}
+
+document.getElementById('cam-cancel').addEventListener('click', closeCam);
+document.getElementById('cam-capture').addEventListener('click', () => {
+  try {
+    const video = document.getElementById('cam-video');
+    const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, 'ภาพอ้างอิง', 'HumanAI Payroll');
+    refSelfieBase64 = dataUrl.split(',')[1];
+    const thumb = document.getElementById('ref-thumb');
+    thumb.src = dataUrl;
+    thumb.classList.remove('hidden');
+    document.getElementById('btn-ref-selfie').textContent = 'ถ่ายใหม่';
+    closeCam();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+window.addEventListener('pagehide', () => { if (camStream) closeCam(); });
 
 async function onSubmit(e) {
   e.preventDefault();
@@ -114,6 +188,7 @@ async function onSubmit(e) {
   status.textContent = '';
 
   try {
+    if (refSelfieBase64) data.reference_selfie_base64 = refSelfieBase64;
     const result = await Api.apiPairEmployee(data, userIdToken);
     showSuccess(result);
   } catch (err) {

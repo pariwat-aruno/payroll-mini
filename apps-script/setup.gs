@@ -91,7 +91,7 @@ const PUBLIC_TABS = [
     headers: ['emp_code', 'first_name', 'last_name', 'nickname',
               'national_id', 'email', 'department', 'position',
               'supervisor_email', 'start_date', 'end_date', 'status',
-              'sso_number', 'note'],
+              'sso_number', 'note', 'reference_selfie_url'],
   },
   {
     name: 'Holiday_Calendar',
@@ -205,8 +205,14 @@ const PUBLIC_TABS = [
   {
     name: 'Attendance_Raw',
     headers: ['emp_code', 'date', 'clock_in', 'clock_out',
-              'total_minutes', 'source', 'imported_at'],
-    note: 'Append-only. Imported from fingerprint scanner CSV.',
+              'total_minutes', 'source', 'imported_at',
+              'selfie_in_url', 'selfie_out_url',
+              'lat', 'lng', 'distance_m', 'geofence_ok',
+              'approval_status'],
+    note: 'Append-only for fingerprint CSV imports. ' +
+          'For source=selfie, one row per (emp_code, date) — first check-in writes clock_in, ' +
+          'subsequent check-ins overwrite clock_out + recompute total_minutes. ' +
+          'approval_status = auto | pending | approved | rejected. Rejected rows ignored by reconcile.',
   },
   {
     name: 'Attendance_Reconciled',
@@ -355,6 +361,18 @@ function _seedSettings(ss) {
      'Minutes after approver requests info before leave is auto-cancelled (PR-3.1).'],
     ['CONDITIONAL_EVIDENCE_DAYS_AFTER_END', '1',
      'Days after leave end_date when employee must submit conditional evidence (PR-3.2).'],
+    ['CHECKIN_MODE', 'fingerprint',
+     'fingerprint = scanner CSV only (default). selfie = LIFF selfie check-in only. both = accept both.'],
+    ['CHECKIN_APPROVER_USERIDS', '',
+     'Comma-separated LINE userIds who receive Flex card when a selfie check-in is flagged (outside geofence). Empty = no approval flow.'],
+    ['CHECKIN_GEOFENCE_LAT', '',
+     'Worksite latitude (decimal degrees). Required when CHECKIN_MODE includes selfie.'],
+    ['CHECKIN_GEOFENCE_LNG', '',
+     'Worksite longitude (decimal degrees). Required when CHECKIN_MODE includes selfie.'],
+    ['CHECKIN_GEOFENCE_RADIUS_M', '150',
+     'Allowed radius from worksite in meters. Check-ins beyond this are flagged (not blocked).'],
+    ['CHECKIN_DRIVE_FOLDER_ID', '',
+     'Drive folder ID for selfie check-in images. Reference selfies and daily check-in selfies go here.'],
   ];
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
