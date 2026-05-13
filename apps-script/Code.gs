@@ -506,15 +506,16 @@ function _handlePostback(event) {
 }
 
 function handlePendingChangePostback_(userId, params) {
-  // Build a minimal ctx from userId
   const ctx = { userId, empCode: lookupEmpCodeByUserId(userId) };
   try {
     const fn = params.action === 'approve_change' ? approvePendingChange : rejectPendingChange;
     fn({ change_id: params.id }, ctx);
-    pushLineMessage(userId,
-      params.action === 'approve_change'
-        ? '✅ อนุมัติคำขอเรียบร้อยแล้ว'
-        : '❌ ปฏิเสธคำขอเรียบร้อยแล้ว');
+    sendDecisionAckFlex(userId, {
+      decision: params.action === 'approve_change' ? 'approved' : 'rejected',
+      kind: 'change',
+      audience: 'approver',
+      empCode: params.id,
+    });
   } catch (err) {
     pushLineMessage(userId, '⚠️ ทำรายการไม่สำเร็จ: ' + (err.message || err));
   }

@@ -308,15 +308,29 @@ function handleApprovalAction(approverUserId, postback) {
   // Confirm to the approver who just acted (the Flex stays in chat — this acknowledges)
   const empCol = headers.indexOf('emp_code');
   const dateCol = headers.indexOf('date');
-  const reqLabel = isLeave ? 'ใบลา' : 'ใบขอ OT';
   const empCode = data[firstRow][empCol];
   const dateLabel = formatDate_(data[firstRow][dateCol]);
-  const ack = isApprove
-    ? (isConditional
-        ? `✅⏳ คุณอนุมัติ${reqLabel}ของ ${empCode} วันที่ ${dateLabel} แบบมีเงื่อนไข (ต้องส่งหลักฐานภายใน ${conditionalDeadlineStr})`
-        : `✅ คุณอนุมัติ${reqLabel}ของ ${empCode} วันที่ ${dateLabel} เรียบร้อยแล้ว`)
-    : `❌ คุณปฏิเสธ${reqLabel}ของ ${empCode} วันที่ ${dateLabel} เรียบร้อยแล้ว`;
-  pushLineMessage(approverUserId, ack);
+  const evidenceCol = headers.indexOf('evidence_url');
+  const reasonCol   = headers.indexOf('reason');
+  const typeCol     = headers.indexOf('leave_type');
+  const evidenceUrl = evidenceCol >= 0 ? String(data[firstRow][evidenceCol] || '') : '';
+  const reasonText  = reasonCol >= 0   ? String(data[firstRow][reasonCol] || '')   : '';
+  const leaveType   = typeCol >= 0     ? String(data[firstRow][typeCol] || '')     : '';
+  const empName     = _lookupEmpName_(empCode);
+  const decisionKey = isApprove
+    ? (isConditional ? 'approved_conditional' : 'approved')
+    : 'rejected';
+  sendDecisionAckFlex(approverUserId, {
+    decision: decisionKey,
+    kind: isLeave ? 'leave' : 'ot',
+    audience: 'approver',
+    empCode, empName,
+    date: dateLabel,
+    leaveType: isLeave ? leaveType : '',
+    detail: reasonText,
+    note: isConditional ? `ต้องส่งหลักฐานภายใน ${conditionalDeadlineStr}` : '',
+    imageUrl: evidenceUrl,
+  });
 
   // Notify others
   if (isApprove) {
@@ -453,18 +467,32 @@ function _notifyEmployeeApproved(row, headers, isLeave, conditionalInfo) {
   const empCode = row[empCol];
   const userId = lookupUserIdByEmpCode(empCode);
   if (!userId) return;
-  const idLabel = isLeave ? 'ใบลา' : 'ใบขอ OT';
   const dateCol = headers.indexOf('date');
+  const evidenceCol = headers.indexOf('evidence_url');
+  const dateLabel = formatDate_(row[dateCol]);
+  const evidenceUrl = evidenceCol >= 0 ? String(row[evidenceCol] || '') : '';
   if (conditionalInfo && conditionalInfo.conditional) {
     const liffUrl = _buildRespondLiffUrl_(conditionalInfo.leaveId, 'evidence');
-    pushLineMessage(userId,
-      `✅ ${idLabel}วันที่ ${formatDate_(row[dateCol])} ได้รับการอนุมัติ (แบบมีเงื่อนไข)\n\n` +
-      `คุณต้องส่งหลักฐานเพิ่มเติมภายใน ${conditionalInfo.deadline}\n\n` +
-      `ส่งหลักฐาน: ${liffUrl}`);
+    sendDecisionAckFlex(userId, {
+      decision: 'approved_conditional',
+      kind: isLeave ? 'leave' : 'ot',
+      audience: 'employee',
+      empCode, empName: _lookupEmpName_(empCode),
+      date: dateLabel,
+      note: `ต้องส่งหลักฐานภายใน ${conditionalInfo.deadline}`,
+      detailUri: liffUrl,
+      imageUrl: evidenceUrl,
+    });
     return;
   }
-  pushLineMessage(userId,
-    `✅ ${idLabel}ของคุณวันที่ ${formatDate_(row[dateCol])} ได้รับอนุมัติเรียบร้อยแล้ว`);
+  sendDecisionAckFlex(userId, {
+    decision: 'approved',
+    kind: isLeave ? 'leave' : 'ot',
+    audience: 'employee',
+    empCode, empName: _lookupEmpName_(empCode),
+    date: dateLabel,
+    imageUrl: evidenceUrl,
+  });
 }
 
 function _notifyEmployeeRejected(row, headers, isLeave, rejecterUserId) {
@@ -472,9 +500,26 @@ function _notifyEmployeeRejected(row, headers, isLeave, rejecterUserId) {
   const empCode = row[empCol];
   const userId = lookupUserIdByEmpCode(empCode);
   if (!userId) return;
-  const idLabel = isLeave ? 'ใบลา' : 'ใบขอ OT';
-  const text = `❌ ${idLabel}ของคุณถูกปฏิเสธ\nหากมีข้อสงสัย กรุณาติดต่อผู้อนุมัติโดยตรง`;
-  pushLineMessage(userId, text);
+  const dateCol = headers.indexOf('date');
+  const evidenceCol = headers.indexOf('evidence_url');
+  const evidenceUrl = evidenceCol >= 0 ? String(row[evidenceCol] || '') : '';
+  sendDecisionAckFlex(userId, {
+    decision: 'rejected',
+    kind: isLeave ? 'leave' : 'ot',
+    audience: 'employee',
+    empCode, empName: _lookupEmpName_(empCode),
+    date: formatDate_(row[dateCol]),
+    detail: 'กรุณาติดต่อผู้อนุมัติโดยตรงหากมีข้อสงสัย',
+    imageUrl: evidenceUrl,
+  });
+}
+
+function _lookupEmpName_(empCode) {
+  try {
+    const emp = readTab_(getPublicSheet_(), 'Employees').find(e =>
+      String(e.emp_code).trim().toUpperCase() === String(empCode).trim().toUpperCase());
+    return emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : '';
+  } catch (_) { return ''; }
 }
 
 function _notifyNextLevelApprover(row, headers, nextLevel, isLeave) {

@@ -382,17 +382,42 @@ function handleCheckinApprovalAction(approverUserId, params) {
     after: { approval_status: decision },
   });
 
-  pushLineMessage(approverUserId,
-    decision === 'approved'
-      ? `✅ อนุมัติเช็คอิน ${empCode} วันที่ ${dateStr}`
-      : `❌ ปฏิเสธเช็คอิน ${empCode} วันที่ ${dateStr}`);
+  // Build Flex ack with selfie thumbnail (use the latest filled slot's URL).
+  const row = data[rowNum - 2];
+  const lastUrl = String(row[idx.slot4_url] || row[idx.slot3_url] || row[idx.slot2_url] || row[idx.slot1_url] || row[idx.selfie_out_url] || row[idx.selfie_in_url] || '');
+  const refUrl  = (() => {
+    const emp = readTab_(ss, 'Employees').find(e =>
+      String(e.emp_code).trim().toUpperCase() === empCode);
+    return emp && String(emp.reference_selfie_url || '');
+  })();
+  const empName = (() => {
+    const emp = readTab_(ss, 'Employees').find(e =>
+      String(e.emp_code).trim().toUpperCase() === empCode);
+    return emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() : '';
+  })();
+  const distance = Number(row[idx.distance_m] || 0);
+  const detail   = distance ? `ระยะห่างจากหน้างาน: ${distance} m` : '';
 
+  // Acknowledge to the approver
+  sendDecisionAckFlex(approverUserId, {
+    decision, kind: 'checkin', audience: 'approver',
+    empCode, empName,
+    date: dateStr,
+    detail,
+    imageUrl: lastUrl,
+    refImageUrl: refUrl,
+  });
+
+  // Notify the employee
   const empUserId = lookupUserIdByEmpCode(empCode);
   if (empUserId) {
-    pushLineMessage(empUserId,
-      decision === 'approved'
-        ? `✅ เช็คอินวันที่ ${dateStr} ได้รับการอนุมัติแล้ว`
-        : `❌ เช็คอินวันที่ ${dateStr} ไม่ได้รับอนุมัติ — กรุณาติดต่อหัวหน้า`);
+    sendDecisionAckFlex(empUserId, {
+      decision, kind: 'checkin', audience: 'employee',
+      empCode, empName,
+      date: dateStr,
+      detail: decision === 'rejected' ? 'กรุณาติดต่อหัวหน้าหากมีข้อสงสัย' : '',
+      imageUrl: lastUrl,
+    });
   }
 }
 

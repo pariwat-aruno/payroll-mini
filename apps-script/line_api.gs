@@ -809,7 +809,20 @@ function sendDecisionAckFlex(userId, p) {
 
   const flex = { type: 'bubble', body: { type: 'box', layout: 'vertical', contents: body } };
 
-  if (p.imageUrl) {
+  if (p.imageUrl && p.refImageUrl) {
+    // Side-by-side: capture + reference (for checkin)
+    flex.hero = {
+      type: 'box', layout: 'horizontal', spacing: 'sm',
+      contents: [
+        { type: 'image', url: driveUrlToThumbnail_(p.imageUrl, 800),
+          size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
+          action: { type: 'uri', uri: p.imageUrl } },
+        { type: 'image', url: driveUrlToThumbnail_(p.refImageUrl, 800),
+          size: 'full', aspectMode: 'cover', aspectRatio: '1:1', flex: 1,
+          action: { type: 'uri', uri: p.refImageUrl } },
+      ],
+    };
+  } else if (p.imageUrl) {
     flex.hero = {
       type: 'image',
       url: driveUrlToThumbnail_(p.imageUrl, 800),
