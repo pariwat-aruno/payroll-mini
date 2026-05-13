@@ -896,6 +896,80 @@ function sendDecisionAckFlex(userId, p) {
   pushFlex(userId, title, flex);
 }
 
+/**
+ * Flex prompting the employee to scan a missed slot (1/2/3).
+ * Used by checkinReminderTick when the trigger time has passed without a scan.
+ */
+function sendCheckinReminderFlex(userId, p) {
+  if (!userId) return;
+  const liffId = PropertiesService.getScriptProperties().getProperty('LIFF_ID') || '2010019987-1USGaEEO';
+  const base = `https://liff.line.me/${liffId}`;
+  const title = `⏰ เลยเวลา${p.slotLabel || ''} แล้ว`;
+  const flex = {
+    type: 'bubble',
+    body: {
+      type: 'box', layout: 'vertical', contents: [
+        { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: '#EA580C' },
+        { type: 'separator', margin: 'md' },
+        { type: 'text',
+          text: `เลยเวลาเข้างานปกติประมาณ ${p.minutesLate || 5} นาที — กรุณาสแกนหน้าด่วน`,
+          size: 'sm', wrap: true, margin: 'md', color: '#444444' },
+        { type: 'text',
+          text: 'ถ้าวันนี้ลา กดปุ่ม "แจ้งลางาน" ด้านล่างได้เลย',
+          size: 'xs', wrap: true, margin: 'sm', color: '#888888' },
+      ],
+    },
+    footer: {
+      type: 'box', layout: 'vertical', spacing: 'sm', contents: [
+        { type: 'button', style: 'primary', color: '#0EA5E9',
+          action: { type: 'uri', label: '📷 สแกนหน้า', uri: `${base}/checkin.html` } },
+        { type: 'button', style: 'secondary',
+          action: { type: 'uri', label: '📝 แจ้งลางาน', uri: `${base}/leave.html` } },
+      ],
+    },
+  };
+  pushFlex(userId, title, flex);
+}
+
+/**
+ * Flex shown at WORK_DAY_END to remind the employee to clock out / request OT.
+ * Skipped automatically if the employee has already scanned slot4.
+ */
+function sendEndOfDayFlex(userId) {
+  if (!userId) return;
+  const liffId = PropertiesService.getScriptProperties().getProperty('LIFF_ID') || '2010019987-1USGaEEO';
+  const base = `https://liff.line.me/${liffId}`;
+  const title = '⚠️ ถึงเวลาเลิกงานแล้ว';
+  const flex = {
+    type: 'bubble',
+    styles: {
+      body:   { backgroundColor: '#FEF3C7' },   // amber-100
+      footer: { backgroundColor: '#FEF3C7' },
+    },
+    body: {
+      type: 'box', layout: 'vertical', contents: [
+        { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: '#92400E' },
+        { type: 'separator', margin: 'md', color: '#F59E0B' },
+        { type: 'text',
+          text: 'พนักงานควรเก็บของออกจากออฟฟิศทันที',
+          size: 'sm', wrap: true, margin: 'md', color: '#1F2937', weight: 'bold' },
+        { type: 'text',
+          text: 'หากจำเป็นต้องทำงานล่วงเวลา กรุณายื่นคำขอ OT ผ่านปุ่มล่าง',
+          size: 'sm', wrap: true, margin: 'sm', color: '#1F2937' },
+      ],
+    },
+    footer: {
+      type: 'box', layout: 'vertical', spacing: 'sm', contents: [
+        { type: 'button', style: 'primary', color: '#0EA5E9',
+          action: { type: 'uri', label: '📷 ออกงาน (สแกนหน้า)', uri: `${base}/checkin.html` } },
+        { type: 'button', style: 'primary', color: '#F59E0B',
+          action: { type: 'uri', label: '⏰ ขอ OT', uri: `${base}/ot.html` } },
+      ],
+    },
+  };
+  pushFlex(userId, title, flex);
+}
+
 function _baht_(n) {
   const v = Math.round((Number(n) || 0) * 100) / 100;
   return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ฿';

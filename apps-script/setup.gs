@@ -385,6 +385,14 @@ function _seedSettings(ss) {
      'Normal work-day start time (HH:mm). Used by submitOT to auto-classify OT type when the requested window falls outside this range.'],
     ['WORK_DAY_END', '18:00',
      'Normal work-day end time (HH:mm). Used by submitOT to auto-classify OT type.'],
+    ['LUNCH_START', '12:00',
+     'Lunch-break start (HH:mm). Used to time the slot2 (ก่อนเที่ยง) check-in reminder.'],
+    ['LUNCH_END', '13:00',
+     'Lunch-break end (HH:mm). Used to time the slot3 (หลังเที่ยง) check-in reminder.'],
+    ['REMINDER_GRACE_MIN', '5',
+     'Grace period in minutes after the slot trigger time before pinging the employee.'],
+    ['CHECKIN_REMINDER_ENABLED', 'true',
+     'Toggle for the selfie check-in reminder push. Set false to disable all reminders.'],
   ];
   sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }

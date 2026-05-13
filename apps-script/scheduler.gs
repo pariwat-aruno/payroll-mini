@@ -335,3 +335,89 @@ function _findHrUserId_() {
   }
   return null;
 }
+
+/* ============================================================
+ * Selfie check-in reminders — slot1/2/3 nudge + slot4 EOD card
+ * ============================================================ */
+
+/**
+ * Runs every 5 minutes. Detects which slot trigger is "due now" and pings
+ * any active+paired employee who hasn't scanned that slot yet.
+ *
+ * Dedup: CacheService key `reminder:<emp>:slot<N>:<YYYY-MM-DD>` (24h TTL).
+ */
+function checkinReminderTick() {
+  if (String(getSetting_('CHECKIN_REMINDER_ENABLED', 'true')).toLowerCase() !== 'true') return;
+
+  const now = new Date();
+  const currentMin = now.getHours() * 60 + now.getMinutes();
+  const grace = Number(getSetting_('REMINDER_GRACE_MIN', 5));
+  const tolerance = 2; // ± minutes — guards against the 5-min trigger drift
+
+  const triggers = [
+    { slot: 1, label: 'เช้า',       baseKey: 'WORK_DAY_START', addGrace: true,  endOfDay: false },
+    { slot: 2, label: 'ก่อนเที่ยง', baseKey: 'LUNCH_START',    addGrace: true,  endOfDay: false },
+    { slot: 3, label: 'หลังเที่ยง', baseKey: 'LUNCH_END',      addGrace: true,  endOfDay: false },
+    { slot: 4, label: 'เย็น',       baseKey: 'WORK_DAY_END',   addGrace: false, endOfDay: true  },
+  ];
+
+  const due = triggers.find(t => {
+    const base = timeToMinutes_(String(getSetting_(t.baseKey, '00:00')));
+    if (base < 0) return false;
+    const target = base + (t.addGrace ? grace : 0);
+    return Math.abs(currentMin - target) <= tolerance;
+  });
+  if (!due) return;
+
+  const dateStr = formatDate_(now);
+  const isHolidayToday = readTab_(getPublicSheet_(), 'Holiday_Calendar')
+    .some(h => formatDate_(h.date) === dateStr);
+  if (isHolidayToday) return;
+
+  const weekIdx = (now.getDay() + 6) % 7;
+  const employees = readTab_(getPublicSheet_(), 'Employees').filter(e =>
+    e.status === 'active' || e.status === 'probation');
+  const schedules = readTab_(getPublicSheet_(), 'Work_Schedule');
+  const todaySelfieRows = readTab_(getPublicSheet_(), 'Attendance_Raw').filter(a =>
+    formatDate_(a.date) === dateStr && String(a.source) === 'selfie');
+  const cache = CacheService.getScriptCache();
+
+  employees.forEach(emp => {
+    const userId = lookupUserIdByEmpCode(emp.emp_code);
+    if (!userId) return;
+
+    // Must be a work day for this employee
+    const sched = findActiveRecord_(schedules, emp.emp_code, dateStr);
+    const bitmap = String((sched && sched.work_days_bitmap) || '1111100');
+    if (bitmap.charAt(weekIdx) !== '1') return;
+
+    // Already scanned this slot?
+    const row = todaySelfieRows.find(a =>
+      String(a.emp_code).trim().toUpperCase() === String(emp.emp_code).trim().toUpperCase());
+    const slotTime = row && String(row['slot' + due.slot + '_time'] || '').trim();
+    if (slotTime) return;
+
+    const cacheKey = `reminder:${emp.emp_code}:slot${due.slot}:${dateStr}`;
+    if (cache.get(cacheKey)) return;
+
+    try {
+      if (due.endOfDay) sendEndOfDayFlex(userId);
+      else sendCheckinReminderFlex(userId, { slotLabel: due.label, minutesLate: grace });
+      cache.put(cacheKey, '1', 24 * 3600);
+    } catch (e) {
+      console.error('checkin reminder failed for ' + emp.emp_code + ': ' + e);
+    }
+  });
+}
+
+/**
+ * One-time installer — run from the editor to wire the time trigger.
+ * Removes any old `checkinReminderTick` triggers first so it's idempotent.
+ */
+function installCheckinReminderTrigger() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'checkinReminderTick') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkinReminderTick').timeBased().everyMinutes(5).create();
+  Logger.log('Installed: checkinReminderTick every 5 minutes');
+}

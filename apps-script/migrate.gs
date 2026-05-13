@@ -95,6 +95,10 @@ function migrateSheets() {
       ['CHECKIN_DRIVE_FOLDER_ID', '', 'Drive folder ID for selfie check-in images.'],
       ['WORK_DAY_START', '09:00', 'Normal work-day start (HH:mm) — used to auto-classify OT type.'],
       ['WORK_DAY_END',   '18:00', 'Normal work-day end (HH:mm) — used to auto-classify OT type.'],
+      ['LUNCH_START',    '12:00', 'Lunch start (HH:mm) — slot2 reminder anchor.'],
+      ['LUNCH_END',      '13:00', 'Lunch end (HH:mm) — slot3 reminder anchor.'],
+      ['REMINDER_GRACE_MIN', '5', 'Grace minutes after slot trigger before pinging.'],
+      ['CHECKIN_REMINDER_ENABLED', 'true', 'Toggle for selfie check-in reminders.'],
     ];
 
     const toAppend = desired.filter(row => !existingKeys.has(row[0]));
