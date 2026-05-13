@@ -74,6 +74,11 @@
           class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
     เริ่มเช็คอิน
   </button>
+  <button id="btn-file" type="button"
+          class="w-full mt-3 bg-emerald-600 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
+    📷 ใช้กล้องระบบ (ทางเลือก)
+  </button>
+  <input id="file-fallback" type="file" accept="image/*" capture="user" hidden>
   <button id="btn-external" hidden
           class="w-full mt-3 bg-slate-900 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
     เปิดในเบราว์เซอร์ภายนอก
@@ -109,8 +114,8 @@
 <script src="api.js"></script>
 <script src="nav.js"></script>
 <script type="module">
-import { startCamera, captureFromVideoWithStamp, stopCamera } from './js/camera.js';
-window.PayrollCamera = { startCamera, captureFromVideoWithStamp, stopCamera };
+import { startCamera, captureFromVideoWithStamp, captureFromFileWithStamp, stopCamera } from './js/camera.js';
+window.PayrollCamera = { startCamera, captureFromVideoWithStamp, captureFromFileWithStamp, stopCamera };
 </script>
 <script>
 const Liff = window.LiffBridge;
@@ -189,6 +194,35 @@ function renderSlots(times, scanCount) {
 
 document.getElementById('btn-checkin').addEventListener('click', startCheckin);
 document.getElementById('btn-external').addEventListener('click', openExternal);
+document.getElementById('btn-file').addEventListener('click', () => {
+  document.getElementById('file-fallback').click();
+});
+document.getElementById('file-fallback').addEventListener('change', onFilePicked);
+
+async function onFilePicked(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ''; // allow re-pick of same file later
+  if (!file) return;
+  try {
+    setStatus('กำลังขอตำแหน่ง...');
+    coords = await getCoords();
+    setStatus('กำลังประมวลผลรูป...');
+    const nextSlot = (status_ && status_.scan_count) || 0;
+    const label = SLOT_LABELS[nextSlot] || 'เช็คอิน';
+    const dataUrl = await window.PayrollCamera.captureFromFileWithStamp(file, label, 'HumanAI Payroll');
+    const base64 = dataUrl.split(',')[1];
+    setStatus('กำลังอัปโหลดรูป...');
+    const { url: selfieUrl } = await Api.apiUploadCheckinSelfie(userIdToken, { selfie_base64: base64 });
+    setStatus('กำลังบันทึก...');
+    const result = await Api.apiSubmitCheckin(userIdToken, {
+      lat: coords.lat, lng: coords.lng, selfie_url: selfieUrl,
+    });
+    setStatus(buildSuccessMsg(result), 'ok');
+    await loadStatus();
+  } catch (err) {
+    setStatus(err.message || ('ผิดพลาด: ' + err), 'error');
+  }
+}
 
 async function startCheckin() {
   const btn = document.getElementById('btn-checkin');

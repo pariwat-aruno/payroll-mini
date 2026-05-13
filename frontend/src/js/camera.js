@@ -89,3 +89,60 @@ export function stopCamera(stream) {
   if (!stream) return;
   stream.getTracks().forEach(function (t) { t.stop(); });
 }
+
+/**
+ * Fallback path for environments where getUserMedia is blocked:
+ * load an image File picked from <input type="file" capture="user">,
+ * downsize + burn the same timestamp overlay, return a JPEG data URL.
+ */
+export function captureFromFileWithStamp(file, label, brand, maxWidth = 960, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('โหลดรูปไม่ได้'));
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h) return reject(new Error('รูปไม่ถูกต้อง'));
+        const ratio = Math.min(maxWidth / w, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(w * ratio);
+        canvas.height = Math.round(h * ratio);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const now = new Date();
+        const opts = { timeZone: 'Asia/Bangkok', hour12: false };
+        const dateStr = now.toLocaleDateString('en-CA', { ...opts, year: 'numeric', month: '2-digit', day: '2-digit' });
+        const timeStr = now.toLocaleTimeString('en-GB',  { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const stamp = (label ? label + '  •  ' : '') + dateStr + ' ' + timeStr;
+        const brandText = brand || '';
+
+        const fontSize = Math.max(16, Math.round(canvas.width / 32));
+        const padX = Math.round(canvas.width * 0.025);
+        const padY = Math.round(fontSize * 0.55);
+        const lineH = fontSize + padY;
+        const lines = brandText ? 2 : 1;
+        const bandH = lineH * lines + padY;
+
+        ctx.fillStyle = 'rgba(17, 24, 39, 0.72)';
+        ctx.fillRect(0, canvas.height - bandH, canvas.width, bandH);
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'top';
+        ctx.font = 'bold ' + fontSize + 'px -apple-system, "Helvetica Neue", "Sukhumvit Set", "Prompt", sans-serif';
+        ctx.fillText(stamp, padX, canvas.height - bandH + padY * 0.8);
+        if (brandText) {
+          ctx.fillStyle = '#cbd5e1';
+          ctx.font = Math.round(fontSize * 0.7) + 'px -apple-system, "Helvetica Neue", "Sukhumvit Set", "Prompt", sans-serif';
+          ctx.fillText(brandText, padX, canvas.height - lineH + padY * 0.4);
+        }
+
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
