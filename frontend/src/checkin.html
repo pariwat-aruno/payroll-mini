@@ -260,11 +260,17 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
     const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, label, 'HumanAI Payroll');
     const base64 = dataUrl.split(',')[1];
     hideCamModal();
+    setStatus('กำลังอัปโหลดรูป...');
+    // Step 1 — upload the selfie alone (big body, isolated request)
+    const { url: selfieUrl } = await Api.apiUploadCheckinSelfie(userIdToken, {
+      selfie_base64: base64,
+    });
     setStatus('กำลังบันทึก...');
+    // Step 2 — submit metadata referencing the uploaded URL (tiny body)
     const result = await Api.apiSubmitCheckin(userIdToken, {
       lat: coords.lat,
       lng: coords.lng,
-      selfie_base64: base64,
+      selfie_url: selfieUrl,
     });
     setStatus(buildSuccessMsg(result), 'ok');
     await loadStatus();

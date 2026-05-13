@@ -115,8 +115,9 @@ function _getHandler(action) {
     uploadEvidence: handleUploadEvidence,
 
     // Selfie check-in
-    submitCheckin:   (p, c) => submitCheckin(p, c),
-    getCheckinStatus:(p, c) => getCheckinStatus(p, c),
+    uploadCheckinSelfie:(p, c) => uploadCheckinSelfie(p, c),
+    submitCheckin:      (p, c) => submitCheckin(p, c),
+    getCheckinStatus:   (p, c) => getCheckinStatus(p, c),
 
     // HR / Admin (HR or Owner role required)
     hrListEmployees:    handleHrListEmployees,

@@ -144,6 +144,10 @@ async function apiUploadEvidence(idToken, payload) {
   return apiPost('uploadEvidence', payload, idToken);
 }
 
+async function apiUploadCheckinSelfie(idToken, payload) {
+  return apiPost('uploadCheckinSelfie', payload, idToken);
+}
+
 async function apiSubmitCheckin(idToken, payload) {
   return apiPost('submitCheckin', payload, idToken);
 }
@@ -192,6 +196,7 @@ if (typeof window !== 'undefined') {
     apiRespondInfoRequest,
     apiSubmitConditionalEvidence,
     apiUploadEvidence,
+    apiUploadCheckinSelfie,
     apiSubmitCheckin,
     apiGetCheckinStatus,
     apiHrListEmployees,

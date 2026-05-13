@@ -20,18 +20,37 @@ const CHECKIN_SLOT_LABELS_ = ['เช้า', 'ก่อนเที่ยง', 
 const CHECKIN_MAX_SLOTS_ = 4;
 
 /**
+ * Step 1 of the two-step upload — accept the raw selfie alone and return
+ * the Drive URL. Frontend then passes the URL into submitCheckin, which
+ * keeps the metadata request tiny and dodges iOS LINE webview's body-size
+ * issue with the script.google.com → googleusercontent.com redirect.
+ *
+ * Body: { selfie_base64 }
+ * Returns: { url }
+ */
+function uploadCheckinSelfie(payload, ctx) {
+  if (!ctx.empCode) throw new Error('not_paired');
+  const selfie = String(payload && payload.selfie_base64 || '');
+  if (!selfie) throw new Error('missing_selfie');
+  const url = uploadSelfieBase64_(selfie, 'slot', ctx.empCode);
+  return { url };
+}
+
+/**
  * Public entry, routed from Code.gs as 'submitCheckin'.
- * Body: { lat, lng, selfie_base64 }
+ * Body: { lat, lng, selfie_url } — preferred path (small body)
+ *    or { lat, lng, selfie_base64 } — legacy/fallback (large body)
  * Returns: { ok, slot, slot_label, clock_in, clock_out, total_minutes,
  *            distance_m, geofence_ok, approval_status, scan_count }
  */
 function submitCheckin(payload, ctx) {
   const lat = Number(payload && payload.lat);
   const lng = Number(payload && payload.lng);
-  const selfie = String(payload && payload.selfie_base64 || '');
+  const selfieUrl = String(payload && payload.selfie_url || '');
+  const selfieBase64 = String(payload && payload.selfie_base64 || '');
 
   if (!isFinite(lat) || !isFinite(lng)) throw new Error('missing_location');
-  if (!selfie) throw new Error('missing_selfie');
+  if (!selfieUrl && !selfieBase64) throw new Error('missing_selfie');
   if (!ctx.empCode) throw new Error('not_paired');
 
   const mode = String(getSetting_('CHECKIN_MODE', 'fingerprint')).toLowerCase();
@@ -84,8 +103,8 @@ function submitCheckin(payload, ctx) {
   const slotNum = prevScanCount + 1;
   const slotLabel = CHECKIN_SLOT_LABELS_[slotNum - 1];
 
-  // Upload selfie now that we know we'll use it
-  const url = uploadSelfieBase64_(selfie, 'slot' + slotNum, ctx.empCode);
+  // Use pre-uploaded URL or upload now (legacy path)
+  const url = selfieUrl || uploadSelfieBase64_(selfieBase64, 'slot' + slotNum, ctx.empCode);
 
   const approverList = _getCheckinApproverIds_();
   const hasApprovers = approverList.length > 0;
