@@ -167,7 +167,7 @@ function submitCheckin(payload, ctx) {
     // Subsequent scan — fill slotN, update derived fields
     const slotTimeCol = idx['slot' + slotNum + '_time'] + 1;
     const slotUrlCol  = idx['slot' + slotNum + '_url']  + 1;
-    sheet.getRange(rowNum, slotTimeCol).setValue(timeStr);
+    sheet.getRange(rowNum, slotTimeCol).setNumberFormat('@').setValue(timeStr);
     sheet.getRange(rowNum, slotUrlCol).setValue(url);
 
     const clockIn = String(existing[idx.clock_in] || '');
@@ -175,7 +175,7 @@ function submitCheckin(payload, ctx) {
     const endMin   = _hhmmToMin_(timeStr);
     const totalMinutes = (startMin >= 0 && endMin >= 0) ? Math.max(0, endMin - startMin) : '';
 
-    sheet.getRange(rowNum, idx.clock_out + 1).setValue(timeStr);
+    sheet.getRange(rowNum, idx.clock_out + 1).setNumberFormat('@').setValue(timeStr);
     sheet.getRange(rowNum, idx.total_minutes + 1).setValue(totalMinutes);
     sheet.getRange(rowNum, idx.selfie_out_url + 1).setValue(url);
     sheet.getRange(rowNum, idx.lat + 1).setValue(lat);
@@ -239,11 +239,11 @@ function submitCheckin(payload, ctx) {
     date: dateStr,
     slot: slotNum,
     slot_label: slotLabel,
-    clock_in: existing ? String(existing[idx.clock_in] || '') : timeStr,
+    clock_in: existing ? _fmtTimeCell_(existing[idx.clock_in]) : timeStr,
     clock_out: slotNum === 1 ? '' : timeStr,
     total_minutes: (function () {
       if (slotNum === 1) return 0;
-      const start = _hhmmToMin_(String(existing[idx.clock_in] || ''));
+      const start = _hhmmToMin_(_fmtTimeCell_(existing[idx.clock_in]));
       const end   = _hhmmToMin_(timeStr);
       return (start >= 0 && end >= 0) ? Math.max(0, end - start) : 0;
     })(),
@@ -282,10 +282,10 @@ function getCheckinStatus(payload, ctx) {
       date: dateStr,
       slot_labels: CHECKIN_SLOT_LABELS_,
       slot_times: [
-        String(r[idx.slot1_time] || ''),
-        String(r[idx.slot2_time] || ''),
-        String(r[idx.slot3_time] || ''),
-        String(r[idx.slot4_time] || ''),
+        _fmtTimeCell_(r[idx.slot1_time]),
+        _fmtTimeCell_(r[idx.slot2_time]),
+        _fmtTimeCell_(r[idx.slot3_time]),
+        _fmtTimeCell_(r[idx.slot4_time]),
       ],
       slot_urls: [
         driveUrlToThumbnail_(String(r[idx.slot1_url] || ''), 400),
@@ -299,8 +299,8 @@ function getCheckinStatus(payload, ctx) {
         String(r[idx.slot3_url] || ''),
         String(r[idx.slot4_url] || ''),
       ],
-      clock_in: String(r[idx.clock_in] || ''),
-      clock_out: String(r[idx.clock_out] || ''),
+      clock_in: _fmtTimeCell_(r[idx.clock_in]),
+      clock_out: _fmtTimeCell_(r[idx.clock_out]),
       total_minutes: r[idx.total_minutes] || 0,
       scan_count: Number(r[idx.scan_count] || 0),
       geofence_ok: String(r[idx.geofence_ok]) === 'TRUE',
@@ -406,4 +406,14 @@ function _hhmmToMin_(s) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
   if (!m) return -1;
   return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/**
+ * Normalize a cell that may contain "HH:mm" text OR a Date object that
+ * Sheets implicitly coerced from a time string. Always returns "HH:mm".
+ */
+function _fmtTimeCell_(v) {
+  if (!v) return '';
+  if (v instanceof Date) return Utilities.formatDate(v, 'GMT+7', 'HH:mm');
+  return String(v).trim().substring(0, 5);
 }

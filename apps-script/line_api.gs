@@ -747,6 +747,97 @@ function sendCheckinApprovalFlex(approverUserId, req) {
   pushFlex(approverUserId, title, flex);
 }
 
+/**
+ * Generic Flex acknowledgement for every approve/reject/info-request action.
+ *
+ * @param {string} userId — LINE userId or emp_code (auto-resolved via LINE_User_Map)
+ * @param {object} p
+ *   decision: 'approved' | 'approved_conditional' | 'rejected' | 'info_requested'
+ *   kind:     'checkin' | 'leave' | 'ot' | 'change'
+ *   audience: 'approver' | 'employee'
+ *   empCode, empName?, date?, slot?, leaveType?, detail?
+ *   imageUrl?    — Drive URL of attached photo (auto thumbnailed)
+ *   detailUri?   — open-in-LIFF/Drive button
+ *   note?        — extra text line, e.g. compliance deadline
+ */
+function sendDecisionAckFlex(userId, p) {
+  if (!userId) return;
+  if (!String(userId).startsWith('U')) {
+    const resolved = lookupUserIdByEmpCode(userId);
+    if (!resolved) {
+      console.warn('sendDecisionAckFlex: cannot resolve "' + userId + '"');
+      return;
+    }
+    userId = resolved;
+  }
+
+  const KIND_LABEL = {
+    checkin: 'เช็คอิน',
+    leave:   'ใบลา',
+    ot:      'ใบขอ OT',
+    change:  'คำขอเปลี่ยนแปลง',
+  };
+  const DECISION_META = {
+    approved:             { icon: '✅',  color: '#0F5132', verb: 'อนุมัติ' },
+    approved_conditional: { icon: '✅⏳', color: '#856404', verb: 'อนุมัติแบบมีเงื่อนไข' },
+    rejected:             { icon: '❌',  color: '#B91C1C', verb: 'ปฏิเสธ' },
+    info_requested:       { icon: 'ℹ️',  color: '#1E40AF', verb: 'ขอข้อมูลเพิ่ม' },
+  };
+  const meta = DECISION_META[p.decision] || DECISION_META.approved;
+  const kindLabel = KIND_LABEL[p.kind] || p.kind;
+
+  const title = p.audience === 'approver'
+    ? `${meta.icon} คุณ${meta.verb}${kindLabel} ${p.empCode || ''}`.trim()
+    : `${meta.icon} ${kindLabel}ของคุณ${p.decision === 'rejected' ? 'ถูก' : 'ได้รับ'}${meta.verb}`;
+
+  const body = [
+    { type: 'text', text: title, weight: 'bold', size: 'lg', wrap: true, color: meta.color },
+    { type: 'separator', margin: 'md' },
+  ];
+  if (p.audience === 'approver' && (p.empName || p.empCode)) {
+    body.push({
+      type: 'text',
+      text: [p.empCode, p.empName].filter(Boolean).join(' · '),
+      weight: 'bold', size: 'md', wrap: true, margin: 'md',
+    });
+  }
+  if (p.date)      body.push(_flexRow('วันที่', p.date));
+  if (p.slot)      body.push(_flexRow('สแกน', p.slot));
+  if (p.leaveType) body.push(_flexRow('ประเภท', p.leaveType));
+  if (p.detail)    body.push({ type: 'text', text: p.detail, size: 'sm', wrap: true, margin: 'md', color: '#444444' });
+  if (p.note)      body.push({ type: 'text', text: p.note, size: 'xs', wrap: true, margin: 'md', color: '#888888' });
+
+  const flex = { type: 'bubble', body: { type: 'box', layout: 'vertical', contents: body } };
+
+  if (p.imageUrl) {
+    flex.hero = {
+      type: 'image',
+      url: driveUrlToThumbnail_(p.imageUrl, 800),
+      size: 'full', aspectMode: 'cover', aspectRatio: '4:3',
+      action: { type: 'uri', uri: p.imageUrl },
+    };
+  }
+
+  const footerBtns = [];
+  if (p.imageUrl) {
+    footerBtns.push({
+      type: 'button', style: 'secondary',
+      action: { type: 'uri', label: '🖼️ ดูรูปขนาดเต็ม', uri: p.imageUrl },
+    });
+  }
+  if (p.detailUri) {
+    footerBtns.push({
+      type: 'button', style: 'secondary',
+      action: { type: 'uri', label: '📄 ดูรายละเอียด', uri: p.detailUri },
+    });
+  }
+  if (footerBtns.length) {
+    flex.footer = { type: 'box', layout: 'vertical', spacing: 'sm', contents: footerBtns };
+  }
+
+  pushFlex(userId, title, flex);
+}
+
 function _flexRow(label, value) {
   return {
     type: 'box',
