@@ -316,6 +316,16 @@ async function onSubmit(e) {
 }
 
 function showSuccess(result) {
+  const combined =
+    `ลงทะเบียนพนักงานใหม่\n` +
+    `ชื่อ: ${result.full_name}\n` +
+    `รหัสพนักงาน: ${result.emp_code}\n` +
+    `รหัสผูก: ${result.pairing_code} (24 ชม.)\n\n` +
+    `ขั้นตอนผูกบัญชี:\n` +
+    `1. Add LINE OA เป็นเพื่อน\n` +
+    `2. พิมพ์ /ลงทะเบียน ใน chat\n` +
+    `3. แตะลิงก์ที่บอทส่งให้ → กรอกรหัสพนักงาน + รหัสผูก`;
+
   document.getElementById('main').innerHTML = `
     <section class="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-6 text-center">
       <p class="text-sm text-emerald-700 font-semibold uppercase tracking-wider">สร้างสำเร็จ</p>
@@ -323,20 +333,66 @@ function showSuccess(result) {
       <p class="text-sm text-slate-500 mt-0.5">${result.emp_code}</p>
     </section>
 
-    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-6 text-center">
-      <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">Pairing Code · 24 ชม.</p>
-      <p class="text-5xl font-bold tracking-[0.2em] text-cyan-700 mt-3">${result.pairing_code}</p>
-      <p class="text-xs text-slate-500 mt-4 leading-relaxed">
-        ส่งรหัส 6 หลักนี้ + รหัสพนักงาน <span class="font-semibold text-slate-900">${result.emp_code}</span><br>
-        ให้พนักงานเปิด LIFF → "ผูกบัญชี LINE" → ใส่ทั้งสองรหัส
-      </p>
+    <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5 space-y-3">
+      ${copyRow('ชื่อ',         result.full_name)}
+      ${copyRow('รหัสพนักงาน',  result.emp_code, true)}
+      ${copyRow('รหัสผูก',      result.pairing_code, true)}
     </section>
 
-    <div class="grid grid-cols-2 gap-2">
+    <button id="copy-all" class="w-full py-3.5 rounded-lg bg-cyan-600 text-white text-sm font-semibold tracking-wide active:scale-[0.98] transition">
+      📋 คัดลอกข้อความทั้งหมด (ส่งให้พนักงาน)
+    </button>
+    <p class="text-xs text-center text-slate-500 leading-relaxed">
+      พนักงานต้องพิมพ์ <span class="font-mono">/ลงทะเบียน</span> ใน chat OA → แตะลิงก์ → ใส่ทั้งสองรหัส (อายุ 24 ชม.)
+    </p>
+
+    <div class="grid grid-cols-2 gap-2 pt-1">
       <a href="onboard.html" class="block text-center py-3 rounded-lg border border-slate-300 bg-white text-sm font-medium active:scale-[0.98] transition">เพิ่มอีกคน</a>
       <a href="index.html" class="block text-center py-3 rounded-lg bg-slate-900 text-white text-sm font-medium active:scale-[0.98] transition">กลับเมนู</a>
     </div>
   `;
+
+  // Wire copy buttons (per-field + combined)
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => copyTo(btn, btn.getAttribute('data-copy')));
+  });
+  document.getElementById('copy-all').addEventListener('click', (e) => {
+    copyTo(e.currentTarget, combined, '✅ คัดลอกข้อความแล้ว');
+  });
+}
+
+function copyRow(label, value, mono) {
+  const valClass = mono ? 'font-mono font-semibold text-slate-900' : 'font-medium text-slate-900';
+  return `
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-[10px] text-slate-500 uppercase tracking-wider">${label}</p>
+        <p class="${valClass} text-base mt-0.5 truncate">${value}</p>
+      </div>
+      <button type="button" data-copy="${value}"
+              class="shrink-0 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 active:scale-[0.98] transition">
+        คัดลอก
+      </button>
+    </div>`;
+}
+
+async function copyTo(btn, text, successLabel) {
+  const original = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    // Fallback for older Safari / restricted LIFF webview
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (_) { alert('คัดลอกไม่ได้: ' + text); }
+    document.body.removeChild(ta);
+  }
+  btn.textContent = successLabel || '✅ คัดลอกแล้ว';
+  setTimeout(() => { btn.textContent = original; }, 1500);
 }
 
 function forbidden() {
