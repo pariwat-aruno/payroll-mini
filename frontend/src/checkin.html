@@ -218,26 +218,34 @@ function getCoords() {
 
 async function openCam() {
   document.getElementById('cam-modal').classList.remove('hidden');
+  // Reuse the already-running stream if we have one — no re-prompt.
+  if (camStream) return;
   try {
     const video = document.getElementById('cam-video');
     if (!window.PayrollCamera) throw new Error('camera module not loaded yet — รอแป๊บแล้วลองใหม่');
     camStream = await window.PayrollCamera.startCamera(video, 'user');
   } catch (err) {
-    closeCam();
+    hideCamModal();
     document.getElementById('btn-checkin').disabled = false;
     setStatus('เปิดกล้องไม่ได้: ' + err.message, 'error');
     showOpenExternal();
   }
 }
 
-function closeCam() {
-  if (window.PayrollCamera) window.PayrollCamera.stopCamera(camStream);
-  camStream = null;
+/** Hide the modal but keep the stream warm so the next capture doesn't re-prompt. */
+function hideCamModal() {
   document.getElementById('cam-modal').classList.add('hidden');
 }
 
+/** Fully release the camera — only call on page leave. */
+function releaseCam() {
+  if (window.PayrollCamera) window.PayrollCamera.stopCamera(camStream);
+  camStream = null;
+  hideCamModal();
+}
+
 document.getElementById('cam-cancel').addEventListener('click', () => {
-  closeCam();
+  hideCamModal();
   document.getElementById('btn-checkin').disabled = false;
 });
 
@@ -251,7 +259,7 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
     const label = SLOT_LABELS[nextSlot] || 'เช็คอิน';
     const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, label, 'HumanAI Payroll');
     const base64 = dataUrl.split(',')[1];
-    closeCam();
+    hideCamModal();
     setStatus('กำลังบันทึก...');
     const result = await Api.apiSubmitCheckin(userIdToken, {
       lat: coords.lat,
@@ -278,7 +286,7 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
   }
 });
 
-window.addEventListener('pagehide', () => { if (camStream) closeCam(); });
+window.addEventListener('pagehide', releaseCam);
 
 function showOpenExternal() {
   // Show fallback only inside LIFF webview — external browser already has full perms
