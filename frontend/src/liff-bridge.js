@@ -41,6 +41,23 @@ async function liffInit(liffId) {
       return;
     }
     _liffReady = true;
+
+    // LIFF dispatcher passes the requested sub-path as ?liff.state=/page.html
+    // Some SDK builds (notably inside iOS LINE) don't auto-navigate to that
+    // path after init — they leave us sitting on the endpoint root with the
+    // query param still there. Handle it ourselves so deep-link navigation
+    // from the home menu actually lands on the target page.
+    const liffState = new URLSearchParams(window.location.search).get('liff.state');
+    if (liffState && !window.__liffStateHandled) {
+      const target = liffState.replace(/^\/+/, '');
+      if (target && !window.location.pathname.endsWith('/' + target.split('?')[0])) {
+        window.__liffStateHandled = true;
+        const sep = target.includes('?') ? '&' : '?';
+        const carry = window.location.search.replace(/[?&]liff\.state=[^&]*/, '').replace(/^&/, '?');
+        window.location.replace(target + (carry ? (sep + carry.slice(1)) : ''));
+        return;
+      }
+    }
   } catch (err) {
     console.error('[LIFF] init failed:', err);
     // fall back to mock if dev, otherwise re-throw
