@@ -16,10 +16,15 @@
   .font-mono { font-family: 'JetBrains Mono', monospace; }
   .slot-card {
     border-radius: 0.75rem;
-    padding: 0.85rem 0.5rem;
+    padding: 0.65rem 0.4rem;
     background: rgb(248, 250, 252);
     border: 1px solid rgb(226, 232, 240);
     text-align: center;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
   }
   .slot-card.done {
     background: rgb(236, 253, 245);
@@ -28,6 +33,15 @@
   .slot-card.next {
     background: rgb(254, 252, 232);
     border-color: rgb(250, 204, 21);
+  }
+  .slot-thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    object-fit: cover;
+    background: rgb(226, 232, 240);
+    margin-top: 0.35rem;
+    cursor: pointer;
   }
 </style>
 </head>
@@ -130,6 +144,7 @@ let userIdToken = null;
 let coords = null;
 let camStream = null;
 let status_ = null;
+let me = null;       // { emp_code, full_name, ... } from apiGetMe
 
 (async function init() {
   try {
@@ -137,8 +152,10 @@ let status_ = null;
     if (Liff.liffIsMock()) document.getElementById('mock-banner').classList.remove('hidden');
     const profile = await Liff.liffGetProfile();
     userIdToken = Liff.liffGetIDToken();
-    document.getElementById('user-greeting').textContent = profile.displayName;
-    renderSlots(['', '', '', ''], 0); // empty initial
+    try { me = await Api.apiGetMe(userIdToken); } catch (_) { me = {}; }
+    const greet = (me && me.full_name) || profile.displayName;
+    document.getElementById('user-greeting').textContent = greet;
+    renderSlots(['', '', '', ''], 0, ['', '', '', ''], ['', '', '', '']);
     await loadStatus();
   } catch (err) {
     setStatus('โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'error');
@@ -155,7 +172,12 @@ async function loadStatus() {
 }
 
 function renderStatus(s) {
-  renderSlots(s.slot_times || ['', '', '', ''], s.scan_count || 0);
+  renderSlots(
+    s.slot_times || ['', '', '', ''],
+    s.scan_count || 0,
+    s.slot_urls || ['', '', '', ''],
+    s.slot_full_urls || ['', '', '', '']
+  );
   document.getElementById('scan-count').textContent = s.scan_count || 0;
 
   const flags = [];
@@ -175,19 +197,25 @@ function renderStatus(s) {
   }
 }
 
-function renderSlots(times, scanCount) {
+function renderSlots(times, scanCount, thumbUrls, fullUrls) {
   const grid = document.getElementById('slot-grid');
   grid.innerHTML = SLOT_LABELS.map((label, i) => {
     const time = times[i] || '';
     const done = !!time;
     const isNext = !done && i === scanCount;
     const cls = done ? 'slot-card done' : (isNext ? 'slot-card next' : 'slot-card');
+    const thumb = thumbUrls && thumbUrls[i];
+    const full = fullUrls && fullUrls[i];
+    const thumbHtml = thumb
+      ? `<a href="${full || thumb}" target="_blank" rel="noopener"><img src="${thumb}" class="slot-thumb" alt="${label}" loading="lazy"></a>`
+      : '';
     return `
       <div class="${cls}">
         <p class="text-[10px] uppercase tracking-wide text-slate-500">${label}</p>
-        <p class="mt-1 text-base font-bold font-mono ${done ? 'text-emerald-700' : 'text-slate-300'}">
+        <p class="text-sm font-bold font-mono ${done ? 'text-emerald-700' : 'text-slate-300'} mt-0.5">
           ${done ? time : '--:--'}
         </p>
+        ${thumbHtml}
       </div>`;
   }).join('');
 }
@@ -209,7 +237,12 @@ async function onFilePicked(e) {
     setStatus('กำลังประมวลผลรูป...');
     const nextSlot = (status_ && status_.scan_count) || 0;
     const label = SLOT_LABELS[nextSlot] || 'เช็คอิน';
-    const dataUrl = await window.PayrollCamera.captureFromFileWithStamp(file, label, 'HumanAI Payroll');
+    const dataUrl = await window.PayrollCamera.captureFromFileWithStamp(file, {
+      slot: label,
+      empCode: (me && me.emp_code) || '',
+      empName: (me && me.full_name) || '',
+      brand: 'HumanAI Payroll',
+    });
     const base64 = dataUrl.split(',')[1];
     setStatus('กำลังอัปโหลดรูป...');
     const { url: selfieUrl } = await Api.apiUploadCheckinSelfie(userIdToken, { selfie_base64: base64 });
@@ -294,7 +327,12 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
     const video = document.getElementById('cam-video');
     const nextSlot = (status_ && status_.scan_count) || 0;
     const label = SLOT_LABELS[nextSlot] || 'เช็คอิน';
-    const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, label, 'HumanAI Payroll');
+    const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, {
+      slot: label,
+      empCode: (me && me.emp_code) || '',
+      empName: (me && me.full_name) || '',
+      brand: 'HumanAI Payroll',
+    });
     const base64 = dataUrl.split(',')[1];
     hideCamModal();
     setStatus('กำลังอัปโหลดรูป...');
