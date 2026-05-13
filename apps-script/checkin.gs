@@ -274,10 +274,17 @@ function getCheckinStatus(payload, ctx) {
   const idx = {};
   headers.forEach((h, i) => { idx[h] = i; });
   const dateStr = formatDate_(new Date());
-  const data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+  const range = sheet.getRange(2, 1, last - 1, headers.length);
+  const data = range.getValues();
+  // Use display values for time columns — getValues() returns Date objects
+  // for cells that Sheets coerced into time-only serials, and those serials
+  // round-trip through 1899 BMT and come back shifted. Display value is the
+  // exact string the user sees in the cell.
+  const display = range.getDisplayValues();
 
   for (let i = data.length - 1; i >= 0; i--) {
     const r = data[i];
+    const d = display[i];
     if (String(r[idx.emp_code]).trim().toUpperCase() !== ctx.empCode.toUpperCase()) continue;
     if (formatDate_(r[idx.date]) !== dateStr) continue;
     if (String(r[idx.source]) !== CHECKIN_SOURCE_) continue;
@@ -285,10 +292,10 @@ function getCheckinStatus(payload, ctx) {
       date: dateStr,
       slot_labels: CHECKIN_SLOT_LABELS_,
       slot_times: [
-        _fmtTimeCell_(r[idx.slot1_time]),
-        _fmtTimeCell_(r[idx.slot2_time]),
-        _fmtTimeCell_(r[idx.slot3_time]),
-        _fmtTimeCell_(r[idx.slot4_time]),
+        _fmtTimeCell_(d[idx.slot1_time]),
+        _fmtTimeCell_(d[idx.slot2_time]),
+        _fmtTimeCell_(d[idx.slot3_time]),
+        _fmtTimeCell_(d[idx.slot4_time]),
       ],
       slot_urls: [
         driveUrlToThumbnail_(String(r[idx.slot1_url] || ''), 400),
@@ -302,8 +309,8 @@ function getCheckinStatus(payload, ctx) {
         String(r[idx.slot3_url] || ''),
         String(r[idx.slot4_url] || ''),
       ],
-      clock_in: _fmtTimeCell_(r[idx.clock_in]),
-      clock_out: _fmtTimeCell_(r[idx.clock_out]),
+      clock_in: _fmtTimeCell_(d[idx.clock_in]),
+      clock_out: _fmtTimeCell_(d[idx.clock_out]),
       total_minutes: r[idx.total_minutes] || 0,
       scan_count: Number(r[idx.scan_count] || 0),
       geofence_ok: String(r[idx.geofence_ok]) === 'TRUE',
