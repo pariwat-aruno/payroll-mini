@@ -139,12 +139,15 @@ function submitCheckin(payload, ctx) {
   }
 
   if (!existing) {
-    // First scan of the day — insert new row, slot1 + clock_in are set
+    // First scan of the day — insert new row, slot1 + clock_in are set.
+    // Leading space on time strings keeps Sheets from parsing them as serial
+    // dates (which round-trip wrong due to the 1899 Bangkok Mean Time offset).
+    const t = ' ' + timeStr;
     const newRow = headers.map(h => {
       switch (h) {
         case 'emp_code':       return ctx.empCode;
         case 'date':           return dateStr;
-        case 'clock_in':       return timeStr;
+        case 'clock_in':       return t;
         case 'clock_out':      return '';
         case 'total_minutes':  return '';
         case 'source':         return CHECKIN_SOURCE_;
@@ -156,7 +159,7 @@ function submitCheckin(payload, ctx) {
         case 'distance_m':     return distanceM;
         case 'geofence_ok':    return geofenceOk ? 'TRUE' : 'FALSE';
         case 'approval_status':return approvalStatus;
-        case 'slot1_time':     return timeStr;
+        case 'slot1_time':     return t;
         case 'slot1_url':      return url;
         case 'scan_count':     return 1;
         default:               return '';
@@ -167,7 +170,7 @@ function submitCheckin(payload, ctx) {
     // Subsequent scan — fill slotN, update derived fields
     const slotTimeCol = idx['slot' + slotNum + '_time'] + 1;
     const slotUrlCol  = idx['slot' + slotNum + '_url']  + 1;
-    sheet.getRange(rowNum, slotTimeCol).setNumberFormat('@').setValue(timeStr);
+    sheet.getRange(rowNum, slotTimeCol).setValue(' ' + timeStr);
     sheet.getRange(rowNum, slotUrlCol).setValue(url);
 
     const clockIn = String(existing[idx.clock_in] || '');
@@ -175,7 +178,7 @@ function submitCheckin(payload, ctx) {
     const endMin   = _hhmmToMin_(timeStr);
     const totalMinutes = (startMin >= 0 && endMin >= 0) ? Math.max(0, endMin - startMin) : '';
 
-    sheet.getRange(rowNum, idx.clock_out + 1).setNumberFormat('@').setValue(timeStr);
+    sheet.getRange(rowNum, idx.clock_out + 1).setValue(' ' + timeStr);
     sheet.getRange(rowNum, idx.total_minutes + 1).setValue(totalMinutes);
     sheet.getRange(rowNum, idx.selfie_out_url + 1).setValue(url);
     sheet.getRange(rowNum, idx.lat + 1).setValue(lat);
