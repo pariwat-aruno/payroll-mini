@@ -96,23 +96,21 @@ function _sanitizeFilename_(name, ext) {
 
 /**
  * Upload a base64 selfie image and return its shareable URL.
+ *
+ * If CHECKIN_DRIVE_FOLDER_ID is unset OR points to a folder the script
+ * owner can't access, auto-create a fresh "Payroll Checkin Selfies"
+ * folder in the script owner's My Drive and write its ID back into
+ * Settings — so the next call resolves cleanly.
+ *
  * @param {string} base64 — pure base64 (no `data:` prefix)
- * @param {string} kind — 'reference' | 'daily'
+ * @param {string} kind — 'reference' | 'daily' | 'slot'
  * @param {string} empCode
  */
 function uploadSelfieBase64_(base64, kind, empCode) {
   if (!base64) throw new Error('missing_selfie');
   if (base64.length > 7 * 1024 * 1024) throw new Error('selfie_too_large_max_5mb');
 
-  const folderId = String(getSetting_('CHECKIN_DRIVE_FOLDER_ID', '')).trim();
-  if (!folderId) throw new Error('checkin_drive_folder_not_configured');
-
-  let folder;
-  try {
-    folder = DriveApp.getFolderById(folderId);
-  } catch (e) {
-    throw new Error('checkin_drive_folder_not_accessible: ' + folderId);
-  }
+  const folder = _resolveCheckinFolder_();
 
   const stamp = formatDatetime_(new Date()).replace(/[: ]/g, '-');
   const filename = `${kind}_${empCode || 'unknown'}_${stamp}.jpg`;
@@ -121,4 +119,35 @@ function uploadSelfieBase64_(base64, kind, empCode) {
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return file.getUrl();
+}
+
+function _resolveCheckinFolder_() {
+  const folderId = String(getSetting_('CHECKIN_DRIVE_FOLDER_ID', '')).trim();
+  if (folderId) {
+    try { return DriveApp.getFolderById(folderId); }
+    catch (e) {
+      console.warn('checkin folder not accessible (' + folderId + ') — falling back to auto-create');
+    }
+  }
+  // Auto-create a folder in the script owner's My Drive and persist its ID.
+  const folder = DriveApp.createFolder('Payroll Checkin Selfies (auto)');
+  const newId = folder.getId();
+  _writeSetting_('CHECKIN_DRIVE_FOLDER_ID', newId);
+  console.info('Created and saved CHECKIN_DRIVE_FOLDER_ID = ' + newId);
+  return folder;
+}
+
+function _writeSetting_(key, value) {
+  const ss = getPublicSheet_();
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return;
+    }
+  }
+  // Key not found — append a new row
+  sheet.appendRow([key, value, 'auto-created']);
 }
