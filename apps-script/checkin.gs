@@ -78,6 +78,15 @@ function submitCheckin(payload, ctx) {
   const idx = {};
   headers.forEach((h, i) => { idx[h] = i; });
 
+  // Schema sanity check — surface a clear error instead of letting NaN cells
+  // bubble up as Apps Script's vague "Internal error".
+  const required = ['slot1_time', 'slot1_url', 'slot2_time', 'slot2_url',
+                    'slot3_time', 'slot3_url', 'slot4_time', 'slot4_url', 'scan_count'];
+  const missing = required.filter(c => !(c in idx));
+  if (missing.length) {
+    throw new Error('schema_outdated_run_migrate_sheets: missing ' + missing.join(','));
+  }
+
   // Find today's selfie row for this employee, if any.
   const last = sheet.getLastRow();
   let rowNum = -1;

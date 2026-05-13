@@ -284,6 +284,10 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
       checkin_drive_folder_not_configured: 'ผู้ดูแลยังไม่ตั้ง Drive folder',
       all_slots_filled: 'ครบ 4 ครั้งแล้ววันนี้',
     };
+    if (err.message && err.message.startsWith('schema_outdated_run_migrate_sheets')) {
+      setStatus('Sheet เก่า — ผู้ดูแลรัน migrateSheets ก่อน', 'error');
+      return;
+    }
     setStatus(map[err.message] || ('ผิดพลาด: ' + err.message), 'error');
   } finally {
     captureBtn.disabled = false;
