@@ -43,6 +43,22 @@
     margin-top: 0.35rem;
     cursor: pointer;
   }
+  #lightbox {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.92);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  #lightbox-close {
+    position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 16px;
+    background: rgba(255,255,255,0.15);
+    color: #fff; border: 0;
+    width: 40px; height: 40px; border-radius: 999px;
+    font-size: 22px; line-height: 1;
+  }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-900 min-h-screen">
@@ -105,6 +121,12 @@
 <p id="status-message" class="text-sm text-center min-h-[1.5em] font-medium"></p>
 
 </main>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox(event)">
+  <button id="lightbox-close" type="button" onclick="closeLightbox(event)" aria-label="ปิด">×</button>
+  <img id="lightbox-img" alt="">
 </div>
 
 <!-- Camera modal -->
@@ -207,7 +229,7 @@ function renderSlots(times, scanCount, thumbUrls, fullUrls) {
     const thumb = thumbUrls && thumbUrls[i];
     const full = fullUrls && fullUrls[i];
     const thumbHtml = thumb
-      ? `<a href="${full || thumb}" target="_blank" rel="noopener"><img src="${thumb}" class="slot-thumb" alt="${label}" loading="lazy"></a>`
+      ? `<img src="${thumb}" class="slot-thumb" alt="${label}" loading="lazy" data-full="${full || thumb}" onclick="openLightbox(this)">`
       : '';
     return `
       <div class="${cls}">
@@ -372,6 +394,23 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
 });
 
 window.addEventListener('pagehide', releaseCam);
+
+function openLightbox(imgEl) {
+  // Use the largest thumbnail size (w1600) for in-page preview — no Drive trip.
+  const full = imgEl.getAttribute('data-full') || imgEl.src;
+  const big = full.includes('drive.google.com/thumbnail')
+    ? full.replace(/sz=w\d+/, 'sz=w1600')
+    : full.replace(/\/file\/d\/([^\/]+).*/, 'https://drive.google.com/thumbnail?id=$1&sz=w1600');
+  document.getElementById('lightbox-img').src = big;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(e) {
+  if (e && e.target && e.target.id === 'lightbox-img') return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+}
+window.openLightbox = openLightbox;
+window.closeLightbox = closeLightbox;
 
 function showOpenExternal() {
   // Show fallback only inside LIFF webview — external browser already has full perms

@@ -414,12 +414,22 @@ function _hhmmToMin_(s) {
  */
 function _fmtTimeCell_(v) {
   if (v === '' || v === null || v === undefined) return '';
-  if (v instanceof Date) return Utilities.formatDate(v, 'GMT+7', 'HH:mm');
+  if (v instanceof Date) {
+    // Sheets time-only cells: stored as Date(1899-12-30) + fractional day.
+    // The "wall clock" HH:mm the user typed lives in the UTC accessors —
+    // local timezone formatting introduces a 17-min historical Bangkok offset.
+    const h = String(v.getUTCHours()).padStart(2, '0');
+    const m = String(v.getUTCMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
   const s = String(v).trim();
   if (!s) return '';
   if (/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5, '0');
-  // Try to parse anything else as a Date — handles stringified Date dumps
   const d = new Date(s);
-  if (!isNaN(d.getTime())) return Utilities.formatDate(d, 'GMT+7', 'HH:mm');
+  if (!isNaN(d.getTime())) {
+    const h = String(d.getUTCHours()).padStart(2, '0');
+    const m = String(d.getUTCMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
   return s.substring(0, 5);
 }
