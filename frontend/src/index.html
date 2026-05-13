@@ -212,6 +212,19 @@ const Liff = window.LiffBridge;
 const params = new URLSearchParams(window.location.search);
 const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
 
+// Belt-and-suspenders: some LIFF webview versions silently swallow the
+// default <a href> navigation when the link uses display:flex. Bind an
+// explicit click handler so the menu always navigates.
+document.querySelectorAll('.menu-card').forEach(card => {
+  card.addEventListener('click', e => {
+    const href = card.getAttribute('href');
+    if (!href || href === '#') return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    window.location.href = href;
+  });
+});
+
 (async function init() {
   try {
     await Liff.liffInit(LIFF_ID);
