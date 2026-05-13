@@ -95,6 +95,17 @@ function liffIsMock() {
   return _useMock;
 }
 
+/**
+ * Are we running inside LINE's in-app webview?
+ * Useful for showing "open in external browser" fallbacks when the LINE
+ * webview blocks features like getUserMedia.
+ */
+function liffIsInClient() {
+  if (_useMock) return false;
+  try { return typeof liff !== 'undefined' && liff.isInClient && liff.isInClient(); }
+  catch (e) { return false; }
+}
+
 if (typeof window !== 'undefined') {
   window.LiffBridge = {
     liffInit,
@@ -102,5 +113,6 @@ if (typeof window !== 'undefined') {
     liffGetIDToken,
     liffClose,
     liffIsMock,
+    liffIsInClient,
   };
 }

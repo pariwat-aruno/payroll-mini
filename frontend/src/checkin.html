@@ -14,6 +14,21 @@
   body { font-family: 'Prompt', system-ui, sans-serif; padding-bottom: env(safe-area-inset-bottom); }
   .font-brand { font-family: 'Poppins', 'Prompt', sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .slot-card {
+    border-radius: 0.75rem;
+    padding: 0.85rem 0.5rem;
+    background: rgb(248, 250, 252);
+    border: 1px solid rgb(226, 232, 240);
+    text-align: center;
+  }
+  .slot-card.done {
+    background: rgb(236, 253, 245);
+    border-color: rgb(110, 231, 183);
+  }
+  .slot-card.next {
+    background: rgb(254, 252, 232);
+    border-color: rgb(250, 204, 21);
+  }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-900 min-h-screen">
@@ -37,27 +52,19 @@
       <span id="user-greeting">กำลังโหลด</span>
     </p>
     <h1 class="mt-3 text-3xl font-bold tracking-tight">เช็คอินด้วยใบหน้า</h1>
-    <p class="text-sm text-white/85 mt-1.5">ถ่ายรูปสด + ตำแหน่งที่ตั้ง</p>
+    <p class="text-sm text-white/85 mt-1.5">สแกนหน้า 4 ครั้ง/วัน</p>
   </div>
 </header>
 
 <main class="px-4 -mt-4 space-y-3">
 
 <section class="bg-white rounded-xl ring-1 ring-slate-200 p-5">
-  <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold mb-4">วันนี้</p>
-  <div class="grid grid-cols-3 gap-3 text-center">
-    <div>
-      <p class="text-[11px] text-slate-500 mb-1">เข้างาน</p>
-      <p id="t-in" class="text-2xl font-bold font-mono text-slate-900">--:--</p>
-    </div>
-    <div>
-      <p class="text-[11px] text-slate-500 mb-1">ออกงาน</p>
-      <p id="t-out" class="text-2xl font-bold font-mono text-slate-900">--:--</p>
-    </div>
-    <div>
-      <p class="text-[11px] text-slate-500 mb-1">รวม</p>
-      <p id="t-total" class="text-2xl font-bold font-mono text-slate-900">--</p>
-    </div>
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-[11px] text-slate-500 uppercase tracking-[0.18em] font-semibold">วันนี้</p>
+    <p class="text-xs text-slate-500"><span id="scan-count">0</span>/4 ครั้ง</p>
+  </div>
+  <div class="grid grid-cols-4 gap-2" id="slot-grid">
+    <!-- 4 slot cards injected by JS -->
   </div>
   <div id="status-flags" class="mt-4 text-center text-xs text-slate-500 min-h-[1em]"></div>
 </section>
@@ -66,6 +73,10 @@
   <button id="btn-checkin"
           class="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white py-4 rounded-lg font-semibold text-sm tracking-wide uppercase shadow-lg shadow-cyan-500/30 active:scale-[0.99] disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none transition">
     เริ่มเช็คอิน
+  </button>
+  <button id="btn-external" hidden
+          class="w-full mt-3 bg-slate-900 text-white py-3 rounded-lg font-semibold text-sm tracking-wide active:scale-[0.99] transition">
+    เปิดในเบราว์เซอร์ภายนอก
   </button>
   <p id="hint" class="text-xs text-slate-500 text-center mt-3">
     ระบบจะขอเปิดกล้อง + ตำแหน่ง GPS
@@ -108,10 +119,12 @@ const Api  = window.PayrollApi;
 const params = new URLSearchParams(window.location.search);
 const LIFF_ID = params.get('liffId') || '2010019987-1USGaEEO';
 
+const SLOT_LABELS = ['เช้า', 'ก่อนเที่ยง', 'หลังเที่ยง', 'เย็น'];
+
 let userIdToken = null;
-let coords = null;        // {lat, lng}
+let coords = null;
 let camStream = null;
-let status_ = null;       // last loaded status
+let status_ = null;
 
 (async function init() {
   try {
@@ -120,6 +133,7 @@ let status_ = null;       // last loaded status
     const profile = await Liff.liffGetProfile();
     userIdToken = Liff.liffGetIDToken();
     document.getElementById('user-greeting').textContent = profile.displayName;
+    renderSlots(['', '', '', ''], 0); // empty initial
     await loadStatus();
   } catch (err) {
     setStatus('โหลดข้อมูลไม่สำเร็จ: ' + err.message, 'error');
@@ -136,10 +150,8 @@ async function loadStatus() {
 }
 
 function renderStatus(s) {
-  document.getElementById('t-in').textContent  = s.clock_in  || '--:--';
-  document.getElementById('t-out').textContent = s.clock_out || '--:--';
-  document.getElementById('t-total').textContent = s.total_minutes
-    ? minutesToHm(s.total_minutes) : '--';
+  renderSlots(s.slot_times || ['', '', '', ''], s.scan_count || 0);
+  document.getElementById('scan-count').textContent = s.scan_count || 0;
 
   const flags = [];
   if (!s.geofence_ok) flags.push('นอกรัศมีหน้างาน');
@@ -148,20 +160,35 @@ function renderStatus(s) {
   document.getElementById('status-flags').textContent = flags.join(' · ');
 
   const btn = document.getElementById('btn-checkin');
-  if (!s.clock_in) btn.textContent = 'เช็คอินเข้างาน';
-  else if (!s.clock_out) btn.textContent = 'เช็คอินออกงาน';
-  else btn.textContent = 'อัปเดตเวลาออก';
+  const scanCount = s.scan_count || 0;
+  if (scanCount >= 4) {
+    btn.textContent = 'ครบ 4 ครั้งแล้ววันนี้';
+    btn.disabled = true;
+  } else {
+    btn.textContent = 'เช็คอิน ' + SLOT_LABELS[scanCount];
+    btn.disabled = false;
+  }
 }
 
-function minutesToHm(m) {
-  m = Number(m) || 0;
-  const h = Math.floor(m / 60), mm = m % 60;
-  if (h && mm) return `${h}h${mm}m`;
-  if (h) return `${h}h`;
-  return `${mm}m`;
+function renderSlots(times, scanCount) {
+  const grid = document.getElementById('slot-grid');
+  grid.innerHTML = SLOT_LABELS.map((label, i) => {
+    const time = times[i] || '';
+    const done = !!time;
+    const isNext = !done && i === scanCount;
+    const cls = done ? 'slot-card done' : (isNext ? 'slot-card next' : 'slot-card');
+    return `
+      <div class="${cls}">
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">${label}</p>
+        <p class="mt-1 text-base font-bold font-mono ${done ? 'text-emerald-700' : 'text-slate-300'}">
+          ${done ? time : '--:--'}
+        </p>
+      </div>`;
+  }).join('');
 }
 
 document.getElementById('btn-checkin').addEventListener('click', startCheckin);
+document.getElementById('btn-external').addEventListener('click', openExternal);
 
 async function startCheckin() {
   const btn = document.getElementById('btn-checkin');
@@ -172,8 +199,9 @@ async function startCheckin() {
     setStatus('');
     await openCam();
   } catch (err) {
-    setStatus('ไม่สามารถอ่านตำแหน่งได้: ' + err.message, 'error');
+    setStatus(err.message, 'error');
     btn.disabled = false;
+    showOpenExternal();
   }
 }
 
@@ -182,7 +210,7 @@ function getCoords() {
     if (!navigator.geolocation) return reject(new Error('เบราว์เซอร์ไม่รองรับ GPS'));
     navigator.geolocation.getCurrentPosition(
       pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      err => reject(new Error(err.message || 'GPS error')),
+      err => reject(new Error('ไม่สามารถอ่านตำแหน่ง: ' + (err.message || err.code))),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
@@ -192,16 +220,18 @@ async function openCam() {
   document.getElementById('cam-modal').classList.remove('hidden');
   try {
     const video = document.getElementById('cam-video');
+    if (!window.PayrollCamera) throw new Error('camera module not loaded yet — รอแป๊บแล้วลองใหม่');
     camStream = await window.PayrollCamera.startCamera(video, 'user');
   } catch (err) {
     closeCam();
     document.getElementById('btn-checkin').disabled = false;
     setStatus('เปิดกล้องไม่ได้: ' + err.message, 'error');
+    showOpenExternal();
   }
 }
 
 function closeCam() {
-  window.PayrollCamera.stopCamera(camStream);
+  if (window.PayrollCamera) window.PayrollCamera.stopCamera(camStream);
   camStream = null;
   document.getElementById('cam-modal').classList.add('hidden');
 }
@@ -217,7 +247,8 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
   captureBtn.textContent = 'กำลังส่ง...';
   try {
     const video = document.getElementById('cam-video');
-    const label = (status_ && status_.clock_in) ? 'ออกงาน' : 'เข้างาน';
+    const nextSlot = (status_ && status_.scan_count) || 0;
+    const label = SLOT_LABELS[nextSlot] || 'เช็คอิน';
     const dataUrl = window.PayrollCamera.captureFromVideoWithStamp(video, label, 'HumanAI Payroll');
     const base64 = dataUrl.split(',')[1];
     closeCam();
@@ -237,6 +268,7 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
       selfie_too_large_max_5mb: 'รูปใหญ่เกิน 5MB',
       selfie_checkin_disabled: 'ระบบยังไม่เปิดให้เช็คอินด้วยใบหน้า',
       checkin_drive_folder_not_configured: 'ผู้ดูแลยังไม่ตั้ง Drive folder',
+      all_slots_filled: 'ครบ 4 ครั้งแล้ววันนี้',
     };
     setStatus(map[err.message] || ('ผิดพลาด: ' + err.message), 'error');
   } finally {
@@ -248,10 +280,27 @@ document.getElementById('cam-capture').addEventListener('click', async () => {
 
 window.addEventListener('pagehide', () => { if (camStream) closeCam(); });
 
+function showOpenExternal() {
+  // Show fallback only inside LIFF webview — external browser already has full perms
+  if (Liff.liffIsInClient && Liff.liffIsInClient()) {
+    document.getElementById('btn-external').removeAttribute('hidden');
+  }
+}
+
+function openExternal() {
+  try {
+    if (window.liff && window.liff.openWindow) {
+      window.liff.openWindow({ url: window.location.href, external: true });
+    } else {
+      window.open(window.location.href, '_blank');
+    }
+  } catch (e) {
+    window.open(window.location.href, '_blank');
+  }
+}
+
 function buildSuccessMsg(r) {
-  const base = r.clock_out
-    ? `บันทึกออกงาน ${r.clock_out} (รวม ${minutesToHm(r.total_minutes)})`
-    : `บันทึกเข้างาน ${r.clock_in}`;
+  const base = `บันทึก ${r.slot_label} ${r.clock_out || r.clock_in} (${r.scan_count}/4)`;
   if (!r.geofence_ok) return `${base} · นอกรัศมี (${r.distance_m}m) — รออนุมัติ`;
   return base;
 }

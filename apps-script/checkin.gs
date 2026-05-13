@@ -1,24 +1,29 @@
 /**
- * checkin.gs — Selfie check-in for tenants whose CHECKIN_MODE includes 'selfie'.
+ * checkin.gs — 4-slot selfie check-in for tenants whose CHECKIN_MODE includes 'selfie'.
  *
  * Flow:
  *   Employee opens checkin.html → grant GPS → live camera → capture (with stamp) → submit
  *   Backend uploads selfie to Drive, computes distance from worksite,
- *   and upserts a row in Attendance_Raw (source='selfie').
+ *   and fills the next empty slot (1..4) in Attendance_Raw for that emp+date.
  *
- *   First check-in of the day  → clock_in
- *   Any subsequent check-in    → updates clock_out + recomputes total_minutes
+ *   slot1 = เช้า, slot2 = ก่อนเที่ยง, slot3 = หลังเที่ยง, slot4 = เย็น
  *
- * Geofence: distance > radius does NOT block. It flags the row and (if approvers
+ *   clock_in mirrors slot1_time, clock_out mirrors the latest filled slot's time.
+ *   selfie_in_url and selfie_out_url are aliases for backward compatibility.
+ *
+ * Geofence: out-of-radius does NOT block. It flags the row and (if approvers
  * are configured) sets approval_status='pending' for PR-3 Flex-card approval.
  */
 
 const CHECKIN_SOURCE_ = 'selfie';
+const CHECKIN_SLOT_LABELS_ = ['เช้า', 'ก่อนเที่ยง', 'หลังเที่ยง', 'เย็น'];
+const CHECKIN_MAX_SLOTS_ = 4;
 
 /**
  * Public entry, routed from Code.gs as 'submitCheckin'.
  * Body: { lat, lng, selfie_base64 }
- * Returns: { ok, clock_in, clock_out, total_minutes, distance_m, geofence_ok, approval_status }
+ * Returns: { ok, slot, slot_label, clock_in, clock_out, total_minutes,
+ *            distance_m, geofence_ok, approval_status, scan_count }
  */
 function submitCheckin(payload, ctx) {
   const lat = Number(payload && payload.lat);
@@ -32,7 +37,6 @@ function submitCheckin(payload, ctx) {
   const mode = String(getSetting_('CHECKIN_MODE', 'fingerprint')).toLowerCase();
   if (mode !== 'selfie' && mode !== 'both') throw new Error('selfie_checkin_disabled');
 
-  // Distance to worksite (haversine). Empty geofence settings = treat as inside.
   const refLat = Number(getSetting_('CHECKIN_GEOFENCE_LAT', ''));
   const refLng = Number(getSetting_('CHECKIN_GEOFENCE_LNG', ''));
   const radius = Number(getSetting_('CHECKIN_GEOFENCE_RADIUS_M', 150));
@@ -42,10 +46,6 @@ function submitCheckin(payload, ctx) {
     distanceM = Math.round(_haversineMeters_(lat, lng, refLat, refLng));
     inside = distanceM <= radius;
   }
-
-  // Upload selfie. Burn happens client-side; we trust the stamp the client added
-  // and store as-is — reject only on raw size.
-  const url = uploadSelfieBase64_(selfie, 'daily', ctx.empCode);
 
   const now = new Date();
   const dateStr = formatDate_(now);
@@ -76,77 +76,86 @@ function submitCheckin(payload, ctx) {
     }
   }
 
+  // Determine which slot we're filling
+  const prevScanCount = existing ? Number(existing[idx.scan_count] || 0) : 0;
+  if (prevScanCount >= CHECKIN_MAX_SLOTS_) {
+    throw new Error('all_slots_filled');
+  }
+  const slotNum = prevScanCount + 1;
+  const slotLabel = CHECKIN_SLOT_LABELS_[slotNum - 1];
+
+  // Upload selfie now that we know we'll use it
+  const url = uploadSelfieBase64_(selfie, 'slot' + slotNum, ctx.empCode);
+
   const approverList = _getCheckinApproverIds_();
   const hasApprovers = approverList.length > 0;
   const prevApprovalStatus = existing ? String(existing[idx.approval_status] || 'auto') : 'auto';
-  let approvalStatus;
+
+  // Compute new geofence_ok (AND across all scans)
   let geofenceOk;
-  let kind; // 'in' or 'out' — describes THIS punch
-
-  let clockIn, clockOut, totalMinutes, selfieIn, selfieOut;
   if (!existing) {
-    kind = 'in';
-    // First check-in of the day — this is clock_in.
-    clockIn = timeStr;
-    clockOut = '';
-    totalMinutes = '';
-    selfieIn = url;
-    selfieOut = '';
     geofenceOk = inside;
-    approvalStatus = (inside || !hasApprovers) ? 'auto' : 'pending';
+  } else {
+    const prevOk = String(existing[idx.geofence_ok]) === 'TRUE';
+    geofenceOk = prevOk && inside;
+  }
 
+  // Compute approval_status — sticky once decided, otherwise flip auto→pending on first flag.
+  let approvalStatus;
+  if (geofenceOk) {
+    approvalStatus = prevApprovalStatus === 'auto' ? 'auto' : prevApprovalStatus;
+  } else if (prevApprovalStatus === 'approved' || prevApprovalStatus === 'rejected') {
+    approvalStatus = prevApprovalStatus;
+  } else {
+    approvalStatus = hasApprovers ? 'pending' : 'auto';
+  }
+
+  if (!existing) {
+    // First scan of the day — insert new row, slot1 + clock_in are set
     const newRow = headers.map(h => {
       switch (h) {
         case 'emp_code':       return ctx.empCode;
         case 'date':           return dateStr;
-        case 'clock_in':       return clockIn;
-        case 'clock_out':      return clockOut;
-        case 'total_minutes':  return totalMinutes;
+        case 'clock_in':       return timeStr;
+        case 'clock_out':      return '';
+        case 'total_minutes':  return '';
         case 'source':         return CHECKIN_SOURCE_;
         case 'imported_at':    return formatDatetime_(now);
-        case 'selfie_in_url':  return selfieIn;
-        case 'selfie_out_url': return selfieOut;
+        case 'selfie_in_url':  return url;
+        case 'selfie_out_url': return '';
         case 'lat':            return lat;
         case 'lng':            return lng;
         case 'distance_m':     return distanceM;
         case 'geofence_ok':    return geofenceOk ? 'TRUE' : 'FALSE';
         case 'approval_status':return approvalStatus;
+        case 'slot1_time':     return timeStr;
+        case 'slot1_url':      return url;
+        case 'scan_count':     return 1;
         default:               return '';
       }
     });
     sheet.appendRow(newRow);
   } else {
-    kind = 'out';
-    // Subsequent check-in — overwrite clock_out + recompute total_minutes.
-    clockIn = String(existing[idx.clock_in] || '');
-    clockOut = timeStr;
-    selfieIn = String(existing[idx.selfie_in_url] || url);
-    selfieOut = url;
-    const a = _hhmmToMin_(clockIn);
-    const b = _hhmmToMin_(clockOut);
-    totalMinutes = (a >= 0 && b >= 0) ? Math.max(0, b - a) : '';
+    // Subsequent scan — fill slotN, update derived fields
+    const slotTimeCol = idx['slot' + slotNum + '_time'] + 1;
+    const slotUrlCol  = idx['slot' + slotNum + '_url']  + 1;
+    sheet.getRange(rowNum, slotTimeCol).setValue(timeStr);
+    sheet.getRange(rowNum, slotUrlCol).setValue(url);
 
-    const prevOk = String(existing[idx.geofence_ok]) === 'TRUE';
-    geofenceOk = prevOk && inside;
-    // Once flagged, stays flagged — caller can request approval later.
-    const prevStatus = String(existing[idx.approval_status] || 'auto');
-    if (geofenceOk) {
-      approvalStatus = prevStatus;
-    } else if (prevStatus === 'approved' || prevStatus === 'rejected') {
-      approvalStatus = prevStatus; // owner already decided
-    } else {
-      approvalStatus = hasApprovers ? 'pending' : 'auto';
-    }
+    const clockIn = String(existing[idx.clock_in] || '');
+    const startMin = _hhmmToMin_(clockIn);
+    const endMin   = _hhmmToMin_(timeStr);
+    const totalMinutes = (startMin >= 0 && endMin >= 0) ? Math.max(0, endMin - startMin) : '';
 
-    sheet.getRange(rowNum, idx.clock_out + 1).setValue(clockOut);
+    sheet.getRange(rowNum, idx.clock_out + 1).setValue(timeStr);
     sheet.getRange(rowNum, idx.total_minutes + 1).setValue(totalMinutes);
-    sheet.getRange(rowNum, idx.selfie_in_url + 1).setValue(selfieIn);
-    sheet.getRange(rowNum, idx.selfie_out_url + 1).setValue(selfieOut);
+    sheet.getRange(rowNum, idx.selfie_out_url + 1).setValue(url);
     sheet.getRange(rowNum, idx.lat + 1).setValue(lat);
     sheet.getRange(rowNum, idx.lng + 1).setValue(lng);
     sheet.getRange(rowNum, idx.distance_m + 1).setValue(distanceM);
     sheet.getRange(rowNum, idx.geofence_ok + 1).setValue(geofenceOk ? 'TRUE' : 'FALSE');
     sheet.getRange(rowNum, idx.approval_status + 1).setValue(approvalStatus);
+    sheet.getRange(rowNum, idx.scan_count + 1).setValue(slotNum);
     sheet.getRange(rowNum, idx.imported_at + 1).setValue(formatDatetime_(now));
   }
 
@@ -156,6 +165,8 @@ function submitCheckin(payload, ctx) {
     target_id: ctx.empCode + ':' + dateStr,
     actor_email: ctx.empCode,
     after: {
+      slot: slotNum,
+      slot_label: slotLabel,
       time: timeStr,
       distance_m: distanceM,
       geofence_ok: geofenceOk,
@@ -176,12 +187,13 @@ function submitCheckin(payload, ctx) {
         empSubtitle,
         date: dateStr,
         time: timeStr,
-        kind, // 'in' or 'out'
+        kind: slotLabel,
+        slotNum,
         distanceM: distanceM,
         radiusM: radius,
         geofenceOk,
-        selfieInUrl:  selfieIn,
-        selfieOutUrl: selfieOut,
+        selfieInUrl:  url, // latest scan that triggered the flag
+        selfieOutUrl: '',
         refSelfieUrl: emp && emp.reference_selfie_url,
         mapsUrl: `https://maps.google.com/?q=${lat},${lng}`,
       };
@@ -197,19 +209,27 @@ function submitCheckin(payload, ctx) {
   return {
     ok: true,
     date: dateStr,
-    clock_in: clockIn,
-    clock_out: clockOut,
-    total_minutes: totalMinutes,
+    slot: slotNum,
+    slot_label: slotLabel,
+    clock_in: existing ? String(existing[idx.clock_in] || '') : timeStr,
+    clock_out: slotNum === 1 ? '' : timeStr,
+    total_minutes: (function () {
+      if (slotNum === 1) return 0;
+      const start = _hhmmToMin_(String(existing[idx.clock_in] || ''));
+      const end   = _hhmmToMin_(timeStr);
+      return (start >= 0 && end >= 0) ? Math.max(0, end - start) : 0;
+    })(),
     distance_m: distanceM,
     geofence_ok: geofenceOk,
     approval_status: approvalStatus,
+    scan_count: slotNum,
     selfie_url: url,
   };
 }
 
 /**
  * Lightweight status query for the LIFF page header.
- * Returns today's selfie row summary, or empty fields if none yet.
+ * Returns today's selfie row summary with per-slot times.
  */
 function getCheckinStatus(payload, ctx) {
   if (!ctx.empCode) throw new Error('not_paired');
@@ -232,9 +252,17 @@ function getCheckinStatus(payload, ctx) {
     if (String(r[idx.source]) !== CHECKIN_SOURCE_) continue;
     return {
       date: dateStr,
+      slot_labels: CHECKIN_SLOT_LABELS_,
+      slot_times: [
+        String(r[idx.slot1_time] || ''),
+        String(r[idx.slot2_time] || ''),
+        String(r[idx.slot3_time] || ''),
+        String(r[idx.slot4_time] || ''),
+      ],
       clock_in: String(r[idx.clock_in] || ''),
       clock_out: String(r[idx.clock_out] || ''),
       total_minutes: r[idx.total_minutes] || 0,
+      scan_count: Number(r[idx.scan_count] || 0),
       geofence_ok: String(r[idx.geofence_ok]) === 'TRUE',
       approval_status: String(r[idx.approval_status] || 'auto'),
     };
@@ -245,7 +273,10 @@ function getCheckinStatus(payload, ctx) {
 function _emptyCheckinStatus_() {
   return {
     date: formatDate_(new Date()),
+    slot_labels: CHECKIN_SLOT_LABELS_,
+    slot_times: ['', '', '', ''],
     clock_in: '', clock_out: '', total_minutes: 0,
+    scan_count: 0,
     geofence_ok: true, approval_status: 'auto',
   };
 }
@@ -299,13 +330,11 @@ function handleCheckinApprovalAction(approverUserId, params) {
     after: { approval_status: decision },
   });
 
-  // Notify the approver of success
   pushLineMessage(approverUserId,
     decision === 'approved'
       ? `✅ อนุมัติเช็คอิน ${empCode} วันที่ ${dateStr}`
       : `❌ ปฏิเสธเช็คอิน ${empCode} วันที่ ${dateStr}`);
 
-  // Notify the employee
   const empUserId = lookupUserIdByEmpCode(empCode);
   if (empUserId) {
     pushLineMessage(empUserId,

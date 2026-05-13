@@ -208,10 +208,18 @@ const PUBLIC_TABS = [
               'total_minutes', 'source', 'imported_at',
               'selfie_in_url', 'selfie_out_url',
               'lat', 'lng', 'distance_m', 'geofence_ok',
-              'approval_status'],
+              'approval_status',
+              'slot1_time', 'slot1_url',
+              'slot2_time', 'slot2_url',
+              'slot3_time', 'slot3_url',
+              'slot4_time', 'slot4_url',
+              'scan_count'],
     note: 'Append-only for fingerprint CSV imports. ' +
-          'For source=selfie, one row per (emp_code, date) — first check-in writes clock_in, ' +
-          'subsequent check-ins overwrite clock_out + recompute total_minutes. ' +
+          'For source=selfie, one row per (emp_code, date) with up to 4 slots: ' +
+          'slot1=เช้า, slot2=ก่อนเที่ยง, slot3=หลังเที่ยง, slot4=เย็น. ' +
+          'clock_in mirrors slot1_time, clock_out mirrors the latest filled slot. ' +
+          'selfie_in_url/selfie_out_url are aliases of slot1_url and the latest slot_url ' +
+          'for backward compat with code that ignores the slot columns. ' +
           'approval_status = auto | pending | approved | rejected. Rejected rows ignored by reconcile.',
   },
   {

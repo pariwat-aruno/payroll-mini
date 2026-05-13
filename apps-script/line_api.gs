@@ -681,7 +681,8 @@ function sendCheckinApprovalFlex(approverUserId, req) {
     { type: 'text', text: req.empSubtitle || '', size: 'xs', color: '#666666', wrap: true },
     { type: 'separator', margin: 'md' },
     _flexRow('วันที่', req.date || '-'),
-    _flexRow('เวลา', (req.kind === 'out' ? 'ออกงาน ' : 'เข้างาน ') + (req.time || '-')),
+    _flexRow('สแกน', (req.kind || '') + (req.slotNum ? ` (${req.slotNum}/4)` : '')),
+    _flexRow('เวลา', req.time || '-'),
     _flexRow('ระยะห่าง', `${req.distanceM} m (เกิน ${req.radiusM} m)`),
   ];
   if (req.mapsUrl) {
